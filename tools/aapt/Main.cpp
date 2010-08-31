@@ -60,6 +60,7 @@ void usage(void)
         "        [--min-sdk-version VAL] [--target-sdk-version VAL] \\\n"
         "        [--max-sdk-version VAL] [--app-version VAL] \\\n"
         "        [--app-version-name TEXT] [--custom-package VAL] \\\n"
+        "        [--debug-mode] \\\n"
         "        [-I base-package [-I base-package ...]] \\\n"
         "        [-A asset-source-dir]  [-G class-list-file] [-P public-definitions-file] \\\n"
         "        [-S resource-sources [-S resource-sources ...]] "
@@ -121,6 +122,9 @@ void usage(void)
         "   -0  specifies an additional extension for which such files will not\n"
         "       be stored compressed in the .apk.  An empty string means to not\n"
         "       compress any files at all.\n"
+        "   --debug-mode\n"
+        "       inserts android:debuggable=\"true\" in to the application node of the\n"
+        "       manifest, making the application debuggable even on production devices.\n"
         "   --min-sdk-version\n"
         "       inserts android:minSdkVersion in to manifest.\n"
         "   --target-sdk-version\n"
@@ -373,7 +377,9 @@ int main(int argc, char* const argv[])
                 }
                 break;
             case '-':
-                if (strcmp(cp, "-min-sdk-version") == 0) {
+                if (strcmp(cp, "-debug-mode") == 0) {
+                    bundle.setDebugMode(true);
+                } else if (strcmp(cp, "-min-sdk-version") == 0) {
                     argc--;
                     argv++;
                     if (!argc) {

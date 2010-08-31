@@ -574,6 +574,13 @@ status_t massageManifest(Bundle* bundle, sp<XMLNode> root)
         addTagAttribute(vers, RESOURCES_ANDROID_NAMESPACE, "maxSdkVersion",
                 bundle->getMaxSdkVersion());
     }
+
+    if (bundle->getDebugMode()) {
+        sp<XMLNode> application = root->getChildElement(String16(), String16("application"));
+        if (application != NULL) {
+            addTagAttribute(application, RESOURCES_ANDROID_NAMESPACE, "debuggable", "true");
+        }
+    }
     
     return NO_ERROR;
 }
