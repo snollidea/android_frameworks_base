@@ -123,14 +123,17 @@ class BatteryService extends Binder {
     
     private boolean mSentLowBatteryBroadcast = false;
     
+    private static int mTempCount = 3; 
+    private static int mBatteryReadFailureCount = 0;
+
     public BatteryService(Context context) {
         mContext = context;
         mBatteryStats = BatteryStatsService.getService();
 
-        mLowBatteryWarningLevel = mContext.getResources().getInteger(
+        mLowBatteryWarningLevel = mContext.getResources().getInteger(                        //15 percent
                 com.android.internal.R.integer.config_lowBatteryWarningLevel);
         mLowBatteryCloseWarningLevel = mContext.getResources().getInteger(
-                com.android.internal.R.integer.config_lowBatteryCloseWarningLevel);
+                com.android.internal.R.integer.config_lowBatteryCloseWarningLevel);          //20 percent
 
         mUEventObserver.startObserving("SUBSYSTEM=power_supply");
 
@@ -181,28 +184,79 @@ class BatteryService extends Binder {
     void systemReady() {
         // check our power situation now that it is safe to display the shutdown dialog.
         shutdownIfNoPower();
+		shutdownIfOverTemp();
+    }
+
+
+    private final void shutdown() {
+        Intent intent = new Intent(Intent.ACTION_REQUEST_SHUTDOWN);
+        intent.putExtra(Intent.EXTRA_KEY_CONFIRM, false);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
     }
 
     private final void shutdownIfNoPower() {
         // shut down gracefully if our battery is critically low and we are not powered.
         // wait until the system has booted before attempting to display the shutdown dialog.
         if (mBatteryLevel == 0 && !isPowered() && ActivityManagerNative.isSystemReady()) {
-            Intent intent = new Intent(Intent.ACTION_REQUEST_SHUTDOWN);
-            intent.putExtra(Intent.EXTRA_KEY_CONFIRM, false);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            mContext.startActivity(intent);
+		Log.e(TAG, "Battery power critical ("+mBatteryLevel+"). Shutting down...");		
+                shutdown();
         }
     }
 
+	private final void shutdownIfOverTemp(){
+		//shut down gracefully if temperature is too high ( > 60.0C)
+		//wait until the system has booted before attempting to display the shutdown dialog
+		if((mBatteryTemperature > 600)||(mBatteryTemperature < -100))
+			mTempCount--;
+		else
+			mTempCount = 3;
+
+		if((mTempCount == 0) && ActivityManagerNative.isSystemReady()){
+			Log.e(TAG, "Battery temp critical ("+mBatteryTemperature+"). Shutting down...");	
+            		shutdown();
+		}
+	}
+	
     private native void native_update();
 
     private synchronized final void update() {
-        native_update();
-
         boolean logOutlier = false;
         long dischargeDuration = 0;
 
+	native_update();
+
+	// If the battery is not present (not responding), OR we got a 0 battery level
+	// reading and our last reading was above preservation mode, must be MCU 
+	// rebooting, so give it another cycle before acting on it
+        if ((mBatteryPresent == false) || ((mBatteryLevel == 0) && (mLastBatteryLevel > 3)))  {
+            if (mBatteryPresent == false)  {
+                Log.e(TAG, "BATTERY NOT PRESENT !!");
+            }
+            // Reset battery level to the last level seen to avoid bugs
+            // with battery creep mechanism
+            if (mBatteryLevel == 0)  {
+                Log.e(TAG, "BATTERY LEVEL is 0 !!");
+                mBatteryLevel = mLastBatteryLevel;
+            }
+            mBatteryReadFailureCount++;
+
+            // Require 2 failures in a row before shutting down,
+            // MCU is hosed...
+            if (mBatteryReadFailureCount >= 5) {
+                // FIXME - do we want to put up UI here to tell user
+                // they will need to press power key once module
+                // powers down?
+                shutdown();
+            }
+            return;
+        }
+	else {
+            mBatteryReadFailureCount = 0;
+        }
+
         shutdownIfNoPower();
+        shutdownIfOverTemp();
 
         mBatteryLevelCritical = mBatteryLevel <= CRITICAL_BATTERY_LEVEL;
         if (mAcOnline) {
@@ -212,6 +266,9 @@ class BatteryService extends Binder {
         } else {
             mPlugType = BATTERY_PLUGGED_NONE;
         }
+//#ifdef SLSI_S5P6442
+//Johnny_V17_2       mPlugType = BatteryManager.BATTERY_PLUGGED_USB;
+//#endif /* SLSI_S5P6442 */
         if (mBatteryStatus != mLastBatteryStatus ||
                 mBatteryHealth != mLastBatteryHealth ||
                 mBatteryPresent != mLastBatteryPresent ||

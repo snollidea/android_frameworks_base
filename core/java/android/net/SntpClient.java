@@ -97,22 +97,32 @@ public class SntpClient
             long responseTicks = SystemClock.elapsedRealtime();
             long responseTime = requestTime + (responseTicks - requestTicks);
             socket.close();
-
+            
             // extract the results
-            long originateTime = readTimeStamp(buffer, ORIGINATE_TIME_OFFSET);
+            // NOTE: use requestTime instead of reading out ORIGINATE_TIME_OFFSET as this value may be inaccurate 
+            // if we overflowed sending out a date way in the future.
             long receiveTime = readTimeStamp(buffer, RECEIVE_TIME_OFFSET);
             long transmitTime = readTimeStamp(buffer, TRANSMIT_TIME_OFFSET);
-            long roundTripTime = responseTicks - requestTicks - (transmitTime - receiveTime);
-            long clockOffset = (receiveTime - originateTime) + (transmitTime - responseTime);
-            if (Config.LOGD) Log.d(TAG, "round trip: " + roundTripTime + " ms");
-            if (Config.LOGD) Log.d(TAG, "clock offset: " + clockOffset + " ms");
-
+            long roundTripTime = (responseTicks - requestTicks) - (transmitTime - receiveTime);
+            long clockOffset = ((receiveTime - requestTime) + (transmitTime - responseTime))/2;
+            
+            /*
+            if (Config.LOGD) {
+                Log.d(TAG, String.format("request time:   %d [%#16x] ms", requestTime, requestTime));
+                Log.d(TAG, String.format("response time:  %d [%#16x] ms", responseTime, responseTime));
+                Log.d(TAG, String.format("receive time:   %d [%#16x] ms", receiveTime, receiveTime));
+                Log.d(TAG, String.format("transmit time:  %d [%#16x] ms", transmitTime, transmitTime));
+                Log.d(TAG, String.format("round trip:     %d [%#16x] ms", roundTripTime, roundTripTime));
+                Log.d(TAG, String.format("clock offset:   %d [%#16x] ms", clockOffset, clockOffset));
+            }
+            */
+            
             // save our results
-            mNtpTime = requestTime + clockOffset;
-            mNtpTimeReference = requestTicks;
+            mNtpTime = responseTime + clockOffset;
+            mNtpTimeReference = responseTicks;
             mRoundTripTime = roundTripTime;
         } catch (Exception e) {
-            if (Config.LOGD) Log.d(TAG, "request time failed: " + e);
+            Log.w(TAG, "request time failed: " + e);
             return false;
         }
 
@@ -172,6 +182,10 @@ public class SntpClient
     private long readTimeStamp(byte[] buffer, int offset) {
         long seconds = read32(buffer, offset);
         long fraction = read32(buffer, offset + 4);
+        
+        if ( seconds < OFFSET_1900_TO_1970 ) 
+            Log.w(TAG, String.format("readTimeStamp: seconds underflow %d @ %d", seconds, offset));
+        
         return ((seconds - OFFSET_1900_TO_1970) * 1000) + ((fraction * 1000L) / 0x100000000L);        
     }
 
@@ -183,6 +197,9 @@ public class SntpClient
         long seconds = time / 1000L;
         long milliseconds = time - seconds * 1000L;
         seconds += OFFSET_1900_TO_1970;
+        
+        if ( seconds > 0xFFFFFFFF )
+            Log.w(TAG, String.format("writeTimeStamp: seconds overflow %d @ %d", seconds, offset));
 
         // write seconds in big endian format
         buffer[offset++] = (byte)(seconds >> 24);

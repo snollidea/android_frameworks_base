@@ -286,7 +286,7 @@ public final class BluetoothClass implements Parcelable {
                 default:
                     return false;
             }
-        } else if (profile == PROFILE_HEADSET) {
+	        } else if (profile == PROFILE_HEADSET) {
             // The render service class is required by the spec for HFP, so is a
             // pretty good signal
             if (hasService(Service.RENDER)) {

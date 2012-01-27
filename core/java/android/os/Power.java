@@ -77,6 +77,15 @@ public class Power
      */
     public static native int setScreenState(boolean on);
 
+//#ifdef SLSI_S5P6442
+    /**
+     * Turn the cpufreq on or off
+     *
+     * @param on Whether you want the cpufreq on or off
+     */
+    public static native int setCpufreqState(boolean on);
+//#endif /*SLSI_S5P6442 */
+
     public static native int setLastUserActivityTimeout(long ms);
 
     /**

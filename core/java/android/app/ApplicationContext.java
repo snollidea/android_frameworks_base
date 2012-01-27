@@ -182,7 +182,8 @@ class ApplicationContext extends Context {
     private ClipboardManager mClipboardManager = null;
     private boolean mRestricted;
     private AccountManager mAccountManager; // protected by mSync
-
+    private DownloadManager mDownloadManager = null;
+    
     private final Object mSync = new Object();
 
     private File mDatabasesDir;
@@ -869,18 +870,23 @@ class ApplicationContext extends Context {
             return getWifiManager();
         } else if (NOTIFICATION_SERVICE.equals(name)) {
             return getNotificationManager();
+    /* Disable services not supported on WIMM module
         } else if (KEYGUARD_SERVICE.equals(name)) {
             return new KeyguardManager();
+    */
         } else if (ACCESSIBILITY_SERVICE.equals(name)) {
             return AccessibilityManager.getInstance(this);
         } else if (LOCATION_SERVICE.equals(name)) {
             return getLocationManager();
+    /* Disable services not supported on WIMM module
         } else if (SEARCH_SERVICE.equals(name)) {
             return getSearchManager();
+    */
         } else if (SENSOR_SERVICE.equals(name)) {
             return getSensorManager();
         } else if (VIBRATOR_SERVICE.equals(name)) {
             return getVibrator();
+    /* Disable services not supported on WIMM module
         } else if (STATUS_BAR_SERVICE.equals(name)) {
             synchronized (mSync) {
                 if (mStatusBarManager == null) {
@@ -888,15 +894,23 @@ class ApplicationContext extends Context {
                 }
                 return mStatusBarManager;
             }
+    */
         } else if (AUDIO_SERVICE.equals(name)) {
             return getAudioManager();
+    /* Telephony service is not used on WIMM module but it is used on WIMM emulator */
         } else if (TELEPHONY_SERVICE.equals(name)) {
             return getTelephonyManager();
+    /* Disable services not supported on WIMM module
         } else if (CLIPBOARD_SERVICE.equals(name)) {
             return getClipboardManager();
+    */
         } else if (WALLPAPER_SERVICE.equals(name)) {
             return getWallpaperManager();
+        } else if (DOWNLOAD_SERVICE.equals(name)) {
+            return getDownloadManager();
         }
+        
+        Log.w(TAG, "Unsupported service: " + name, new Throwable());
 
         return null;
     }
@@ -1044,6 +1058,15 @@ class ApplicationContext extends Context {
             }
         }
         return mVibrator;
+    }
+
+    private DownloadManager getDownloadManager() {
+        synchronized (mSync) {
+            if (mDownloadManager == null) {
+                mDownloadManager = new DownloadManager(getContentResolver(), getPackageName());
+            }
+        }
+        return mDownloadManager;
     }
   
     private AudioManager getAudioManager()

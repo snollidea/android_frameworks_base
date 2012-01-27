@@ -222,6 +222,7 @@ final class MountListener implements Runnable {
             // where there is no mount daemon to talk to
 
             // log("IOException in listenToSocket");
+			Log.d(TAG, "IOException in listenToSocket...........");
         }
         
         synchronized (this) {

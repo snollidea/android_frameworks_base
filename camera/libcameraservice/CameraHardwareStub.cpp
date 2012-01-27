@@ -100,12 +100,20 @@ CameraHardwareStub::~CameraHardwareStub()
     singleton.clear();
 }
 
+#ifndef SLSI_S5P6442
 sp<IMemoryHeap> CameraHardwareStub::getPreviewHeap() const
+#else /* SLSI_S5P6442 */
+sp<IMemoryHeap> CameraHardwareStub::getPreviewHeap()
+#endif /*SLSI_S5P6442 */
 {
     return mPreviewHeap;
 }
 
+#ifndef SLSI_S5P6442
 sp<IMemoryHeap> CameraHardwareStub::getRawHeap() const
+#else /* SLSI_S5P6442 */
+sp<IMemoryHeap> CameraHardwareStub::getRawHeap()
+#endif /*SLSI_S5P6442 */
 {
     return mRawHeap;
 }

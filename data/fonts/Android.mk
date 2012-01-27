@@ -23,7 +23,9 @@ copy_from :=                \
     DroidSerif-Italic.ttf   \
     DroidSerif-BoldItalic.ttf   \
     DroidSansMono.ttf        \
-    Clockopia.ttf
+    Clockopia.ttf           \
+    WimmBallpoint.ttf        \
+    WimmDigital.ttf
 
 ifneq ($(NO_FALLBACK_FONT),true)
     copy_from += DroidSansFallback.ttf

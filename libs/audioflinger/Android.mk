@@ -41,6 +41,10 @@ ifeq ($(BOARD_HAVE_BLUETOOTH),true)
   LOCAL_C_INCLUDES += $(call include-path-for, bluez)
 endif
 
+ifeq ($(TARGET_BOARD_PLATFORM),s5p6442)
+LOCAL_CFLAGS  += -DSLSI_S5P6442
+endif
+
 include $(BUILD_STATIC_LIBRARY)
 
 
@@ -70,7 +74,34 @@ ifeq ($(AUDIO_POLICY_TEST),true)
   LOCAL_CFLAGS += -DAUDIO_POLICY_TEST
 endif
 
+ifeq ($(TARGET_BOARD_PLATFORM),s5p6442)
+LOCAL_CFLAGS  += -DSLSI_S5P6442
+endif
+
 include $(BUILD_SHARED_LIBRARY)
+
+# For building libaudiopolicy
+ifeq ($(TARGET_BOARD_PLATFORM),s5p6442)
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES:=               \
+    AudioPolicyManager.cpp
+
+LOCAL_SHARED_LIBRARIES := \
+    libcutils \
+    libutils \
+    libmedia
+
+LOCAL_MODULE:= libaudiopolicy
+
+ifeq ($(BOARD_HAVE_BLUETOOTH),true)
+  LOCAL_CFLAGS += -DWITH_A2DP
+endif
+
+LOCAL_CFLAGS  += -DSLSI_S5P6442
+
+include $(BUILD_SHARED_LIBRARY)
+endif
 
 include $(CLEAR_VARS)
 
@@ -89,6 +120,11 @@ LOCAL_SHARED_LIBRARIES := \
     libmedia \
     libhardware_legacy \
     libaudiopolicygeneric
+
+ifeq ($(TARGET_BOARD_PLATFORM),s5p6442)
+LOCAL_SHARED_LIBRARIES +=  lib_Down_Sampler_ARM_GA_Library
+LOCAL_CFLAGS  += -DSLSI_S5P6442
+endif
 
 ifeq ($(strip $(BOARD_USES_GENERIC_AUDIO)),true)
   LOCAL_STATIC_LIBRARIES += libaudiointerface

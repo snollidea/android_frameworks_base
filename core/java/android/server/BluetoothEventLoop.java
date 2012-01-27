@@ -580,6 +580,10 @@ class BluetoothEventLoop {
 
     private void onDiscoverServicesResult(String deviceObjectPath, boolean result) {
         String address = mBluetoothService.getAddressFromObjectPath(deviceObjectPath);
+        if (address == null) {
+            Log.e(TAG, "onDiscoverServicesResult: Address of the remote device is null");
+            return;
+        }
         // We don't parse the xml here, instead just query Bluez for the properties.
         if (result) {
             mBluetoothService.updateRemoteDevicePropertiesCache(address);

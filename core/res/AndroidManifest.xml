@@ -769,6 +769,7 @@
         android:protectionLevel="dangerous"
         android:label="@string/permlab_readLogs"
         android:description="@string/permdesc_readLogs" />
+        
 
     <!-- ========================================= -->
     <!-- Permissions for special development tools -->
@@ -979,13 +980,13 @@
     <permission android:name="android.permission.REBOOT"
         android:label="@string/permlab_reboot"
         android:description="@string/permdesc_reboot"
-        android:protectionLevel="signature" />
+        android:protectionLevel="signatureOrSystem" />
 
    <!-- Allows low-level access to power management -->
     <permission android:name="android.permission.DEVICE_POWER"
         android:label="@string/permlab_devicePower"
         android:description="@string/permdesc_devicePower"
-        android:protectionLevel="signature" />
+        android:protectionLevel="signatureOrSystem" />
 
     <!-- Run as a manufacturer test application, running as the root user.
          Only available when the device is running in manufacturer test mode. -->

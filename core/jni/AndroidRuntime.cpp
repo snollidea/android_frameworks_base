@@ -1215,6 +1215,7 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_os_FileUtils),
     REG_JNI(register_android_os_ParcelFileDescriptor),
     REG_JNI(register_android_os_Power),
+
     REG_JNI(register_android_os_StatFs),
     REG_JNI(register_android_os_SystemProperties),
     REG_JNI(register_android_os_UEventObserver),

@@ -52,12 +52,14 @@ import org.apache.harmony.xnet.provider.jsse.SSLContextImpl;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.FileInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.net.URI;
 import java.security.KeyManagementException;
+import java.security.KeyStore;
 
 import android.util.Log;
 import android.content.ContentResolver;
@@ -140,6 +142,8 @@ public final class AndroidHttpClient implements HttpClient {
         return new AndroidHttpClient(manager, params);
     }
 
+    private static SSLSocketFactory defaultFactory = null;
+    
     /**
      * Returns a socket factory backed by the given persistent session cache.
      *
@@ -150,7 +154,59 @@ public final class AndroidHttpClient implements HttpClient {
         if (sessionCache == null) {
             // Use the default factory which doesn't support persistent
             // caching.
-            return SSLSocketFactory.getSocketFactory();
+            //return SSLSocketFactory.getSocketFactory();
+            
+            if (defaultFactory == null) {
+                KeyStore keystore = null;
+                KeyStore truststore = null;
+                InputStream in = null;
+                
+                try {
+                    keystore = KeyStore.getInstance("PKCS12");
+                    in = new FileInputStream("/dev/nv/cert.pfx");
+                    keystore.load(in, SystemProperties.get("ro.serialno", "").toCharArray());
+                } catch (Exception e) {
+                    keystore = null;
+
+                    Log.w(TAG, "Could not open keystore");
+                } finally {
+                    if (in != null) {
+                        try {
+                            in.close();
+                        } catch (IOException e) {
+                        }
+                    }
+                }
+                
+                in = null;
+                try {
+                    truststore = KeyStore.getInstance("BKS");
+                    in = new FileInputStream("/system/etc/security/cacerts.bks");
+                    truststore.load(in, "changeit".toCharArray());
+                } catch (Exception e) {
+                    truststore = null;
+
+                    Log.w(TAG, "Could not open truststore");
+                } finally {
+                    if (in != null) {
+                        try {
+                            in.close();
+                        } catch (IOException e) {
+                        }
+                    }
+                }
+                
+                try {
+                    defaultFactory = new SSLSocketFactory(keystore, "", truststore);
+                    defaultFactory.setHostnameVerifier(SSLSocketFactory.STRICT_HOSTNAME_VERIFIER);
+                } catch (Exception e) {
+                    Log.w(TAG, "Could not create SSLSocketFactory");
+                    
+                    defaultFactory = SSLSocketFactory.getSocketFactory();
+                }
+            }
+            
+            return defaultFactory;
         }
 
         // Create a new SSL context backed by the cache.

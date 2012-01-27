@@ -78,6 +78,12 @@ enum {
 
     // New formats can be added if they're also defined in
     // pixelflinger/format.h
+#ifdef SLSI_S5P6442
+    // added by jamie to support customed format for zero copy (2009.07.02)
+    PIXEL_FORMAT_CUSTOM_YCbCr_420_SP= GGL_PIXEL_FORMAT_CUSTOM_YCbCr_420_SP,
+    PIXEL_FORMAT_CUSTOM_YCbCr_422_I = GGL_PIXEL_FORMAT_CUSTOM_YCbCr_422_I,
+    PIXEL_FORMAT_CUSTOM_CbYCr_422_I = GGL_PIXEL_FORMAT_CUSTOM_CbYCr_422_I, //Kamat
+#endif /* SLSI_S5P6442 */
 };
 
 typedef int32_t PixelFormat;
@@ -100,6 +106,9 @@ struct PixelFormatInfo
         Y_CB_CR_SP          = 6,
         Y_CB_CR_P           = 7,
         Y_CB_CR_I           = 8,
+#ifdef SLSI_S5P6442
+        CB_Y_CR_I           = 9, //Kamat
+#endif /* SLSI_S5P6442 */
     };
 
     struct szinfo {

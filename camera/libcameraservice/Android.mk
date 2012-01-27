@@ -50,6 +50,11 @@ LOCAL_SHARED_LIBRARIES:= \
     libcutils \
     libmedia
 
+ifeq ($(TARGET_BOARD_PLATFORM),s5p6442)
+LOCAL_SHARED_LIBRARIES += libhardware_legacy
+LOCAL_CFLAGS  += -DSLSI_S5P6442
+endif
+
 LOCAL_MODULE:= libcameraservice
 
 LOCAL_CFLAGS += -DLOG_TAG=\"CameraService\"

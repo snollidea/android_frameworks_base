@@ -29,9 +29,12 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.RemoteException;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
 import android.os.Power;
 import android.os.ServiceManager;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 
 import com.android.internal.telephony.ITelephony;
 import android.util.Log;
@@ -44,17 +47,29 @@ public final class ShutdownThread extends Thread {
     private static final int PHONE_STATE_POLL_SLEEP_MSEC = 500;
     // maximum time we wait for the shutdown broadcast before going on.
     private static final int MAX_BROADCAST_TIME = 10*1000;
+    private static final int MAX_SHUTDOWN_WAIT_TIME = 20*1000;
+
+    // length of vibration before shutting down
+    private static final int SHUTDOWN_VIBRATE_MS = 500;
     
     // state tracking
     private static Object sIsStartedGuard = new Object();
     private static boolean sIsStarted = false;
     
+    private static boolean mReboot;
+    private static String mRebootReason;
+
+    // Provides shutdown assurance in case the system_server is killed
+    public static final String SHUTDOWN_ACTION_PROPERTY = "sys.shutdown.requested";
+
     // static instance of this thread
     private static final ShutdownThread sInstance = new ShutdownThread();
     
     private final Object mBroadcastDoneSync = new Object();
     private boolean mBroadcastDone;
     private Context mContext;
+    private PowerManager mPowerManager;
+    private PowerManager.WakeLock mWakeLock;
     private Handler mHandler;
     
     private ShutdownThread() {
@@ -102,10 +117,33 @@ public final class ShutdownThread extends Thread {
         }
     }
 
+    /**
+     * Request a clean shutdown, waiting for subsystems to clean up their
+     * state etc.  Must be called from a Looper thread in which its UI
+     * is shown.
+     *
+     * @param context Context used to display the shutdown progress dialog.
+     * @param reason code to pass to the kernel (e.g. "recovery"), or null.
+     * @param confirm true if user confirmation is needed before shutting down.
+     */
+    public static void reboot(final Context context, String reason, boolean confirm) {
+        mReboot = true;
+        mRebootReason = reason;
+        shutdown(context, confirm);
+    }
+
     private static void beginShutdownSequence(Context context) {
         synchronized (sIsStartedGuard) {
+            if (sIsStarted) {
+                Log.d(TAG, "Request to shutdown already running, returning.");
+                return;
+            }
             sIsStarted = true;
         }
+
+        /*
+         * RDC commented out 20110609
+         * Don't want the android progress dialog.  Will show our own.
 
         // throw up an indeterminate system dialog to indicate radio is
         // shutting down.
@@ -121,9 +159,22 @@ public final class ShutdownThread extends Thread {
         }
 
         pd.show();
+        */
 
         // start the thread that initiates shutdown
         sInstance.mContext = context;
+        sInstance.mPowerManager = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
+        sInstance.mWakeLock = null;
+        if (sInstance.mPowerManager.isScreenOn()) {
+            try {
+                sInstance.mWakeLock = sInstance.mPowerManager.newWakeLock(
+                        PowerManager.FULL_WAKE_LOCK, "Shutdown");
+                sInstance.mWakeLock.acquire();
+            } catch (SecurityException e) {
+                Log.w(TAG, "No permission to acquire wake lock", e);
+                sInstance.mWakeLock = null;
+            }
+        }
         sInstance.mHandler = new Handler() {
         };
         sInstance.start();
@@ -151,6 +202,16 @@ public final class ShutdownThread extends Thread {
             }
         };
         
+        /*
+         * Write a system property in case the system_server reboots before we
+         * get to the actual hardware restart. If that happens, we'll retry at
+         * the beginning of the SystemServer startup.
+         */
+        {
+            String reason = (mReboot ? "1" : "0") + (mRebootReason != null ? mRebootReason : "");
+            SystemProperties.set(SHUTDOWN_ACTION_PROPERTY, reason);
+        }
+
         Log.i(TAG, "Sending shutdown broadcast...");
         
         // First send the high-level shut down broadcast.
@@ -242,6 +303,45 @@ public final class ShutdownThread extends Thread {
         }
 
         //shutdown power
+        Log.i(TAG, "Performing low-level shutdown...");
+        rebootOrShutdown(mReboot, mRebootReason);
+    }
+
+    /**
+     * Do not call this directly. Use {@link #reboot(Context, String, boolean)}
+     * or {@link #shutdown(Context, boolean)} instead.
+     *
+     * @param reboot true to reboot or false to shutdown
+     * @param reason reason for reboot
+     */
+    public static void rebootOrShutdown(boolean reboot, String reason) {
+        if (reboot) {
+            Log.i(TAG, "Rebooting, reason: " + reason);
+            try {
+                Power.reboot(reason);
+            } catch (Exception e) {
+                Log.e(TAG, "Reboot failed, will attempt shutdown instead", e);
+            }
+        } 
+/*        
+        else if (SHUTDOWN_VIBRATE_MS > 0) {
+            // vibrate before shutting down
+            Vibrator vibrator = new Vibrator();
+            try {
+                vibrator.vibrate(SHUTDOWN_VIBRATE_MS);
+            } catch (Exception e) {
+                // Failure to vibrate shouldn't interrupt shutdown.  Just log it.
+                Log.w(TAG, "Failed to vibrate during shutdown.", e);
+            }
+
+            // vibrator is asynchronous so we need to wait to avoid shutting down too soon.
+            try {
+                Thread.sleep(SHUTDOWN_VIBRATE_MS);
+            } catch (InterruptedException unused) {
+            }
+        }
+*/
+        // Shutdown power
         Log.i(TAG, "Performing low-level shutdown...");
         Power.shutdown();
     }

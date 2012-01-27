@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.wimm.framework.app.DialogFrame
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent" 
+    android:layout_height="fill_parent" >
+    
+	<LinearLayout
+	    android:orientation="vertical"
+	    android:layout_width="fill_parent" 
+	    android:layout_height="fill_parent" >
+	    
+	    <TextView
+	        android:id="@+id/title_text"
+			android:background="@drawable/wimm_dialog_top" 
+	        android:layout_width="fill_parent"
+	        android:layout_height="wrap_content"
+			android:gravity="center_vertical"
+			android:singleLine="true"
+		/>
+		
+        <FrameLayout
+            android:id="@+id/content_view"
+			android:background="@drawable/wimm_dialog_bottom"
+            android:layout_width="fill_parent" 
+            android:layout_height="wrap_content" />
+        
+    </LinearLayout>
+    
+    <RelativeLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+    >
+    	<ImageView
+	        android:id="@+id/cancel_button"
+    		android:src="@drawable/wimm_dialog_btn_close"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentRight="true"
+   		/>	
+    </RelativeLayout>
+    
+</com.wimm.framework.app.DialogFrame>

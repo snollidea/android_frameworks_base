@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent" 
+    android:layout_height="fill_parent" >
+    
+	<LinearLayout
+	    android:orientation="vertical"
+	    android:layout_width="fill_parent" 
+	    android:layout_height="fill_parent" >
+	    
+	    <TextView
+	        android:id="@+id/title_text"
+			android:background="@drawable/wimm_dialog_top" 
+	        android:layout_width="fill_parent"
+	        android:layout_height="wrap_content"
+			android:gravity="center_vertical"
+			android:singleLine="true"
+			android:textSize="18dp"
+			android:paddingLeft="6dp"
+			android:paddingRight="6dp"
+			android:ellipsize="end"
+		/>
+		
+        <FrameLayout
+			android:background="@drawable/wimm_dialog_bottom"
+            android:layout_width="fill_parent" 
+            android:layout_height="fill_parent" >
+            
+            <ScrollView 
+		        android:scrollbars="none"
+		        android:fillViewport="true"
+		        android:layout_width="fill_parent"
+		        android:layout_height="fill_parent" >
+    
+				<RelativeLayout
+				    android:layout_width="fill_parent" 
+				    android:layout_height="wrap_content" >
+				    
+				    <TextView
+				        android:id="@+id/message_text"
+				        android:layout_width="fill_parent"
+				        android:layout_height="wrap_content"
+				    	android:layout_alignParentTop="true"
+						android:padding="4dp"
+						android:textSize="13dp"
+						android:textColor="#ccc"
+					/>
+					
+					<LinearLayout
+				        android:id="@+id/button_layout"
+					    android:orientation="horizontal"
+					    android:layout_width="fill_parent" 
+					    android:layout_height="wrap_content"
+					    android:layout_alignParentBottom="true"
+					    android:layout_below="@id/message_text"
+					    android:gravity="bottom"
+		                android:layout_margin="2dp" >
+					    
+					    <Button 
+					        android:id="@+id/button1"
+						    android:layout_width="fill_parent" 
+						    android:layout_height="wrap_content"
+			                android:layout_weight="1"
+							android:textSize="16dp"
+			                android:maxLines="2"
+			                android:visibility="gone"
+					    />
+					    
+					    <Button 
+					        android:id="@+id/button2"
+						    android:layout_width="fill_parent" 
+						    android:layout_height="wrap_content"
+			                android:layout_weight="1"
+							android:textSize="16dp"
+			                android:maxLines="2"
+			                android:visibility="gone"
+					    />
+					    
+					    <Button 
+					        android:id="@+id/button3"
+						    android:layout_width="fill_parent" 
+						    android:layout_height="wrap_content"
+			                android:layout_weight="1"
+							android:textSize="16dp"
+			                android:maxLines="2"
+			                android:visibility="gone"
+					    />
+					    
+					</LinearLayout>
+					
+			    </RelativeLayout>
+			    
+            </ScrollView>
+            
+        </FrameLayout>
+        
+    </LinearLayout>
+    
+    <RelativeLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+    >
+    	<ImageView
+	        android:id="@+id/cancel_button"
+    		android:src="@drawable/wimm_dialog_btn_close"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentRight="true"
+            android:layout_marginRight="2dp"
+			android:visibility="gone"
+   		/>	
+    </RelativeLayout>
+    
+</FrameLayout>

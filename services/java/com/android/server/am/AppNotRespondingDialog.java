@@ -28,7 +28,7 @@ import android.os.Message;
 import android.os.Process;
 import android.util.Log;
 
-class AppNotRespondingDialog extends BaseErrorDialog {
+class AppNotRespondingDialog extends WimmErrorDialog {
     private static final String TAG = "AppNotRespondingDialog";
 
     // Event 'what' codes
@@ -78,7 +78,7 @@ class AppNotRespondingDialog extends BaseErrorDialog {
                 : res.getString(resid, name1.toString()));
 
         setButton(DialogInterface.BUTTON_POSITIVE,
-                res.getText(com.android.internal.R.string.force_close),
+                res.getText(com.android.internal.R.string.wimm_force_close),
                 mHandler.obtainMessage(FORCE_CLOSE));
         setButton(DialogInterface.BUTTON_NEUTRAL,
                 res.getText(com.android.internal.R.string.wait),
@@ -90,7 +90,7 @@ class AppNotRespondingDialog extends BaseErrorDialog {
                     mHandler.obtainMessage(WAIT_AND_REPORT));
         }
 
-        setTitle(res.getText(com.android.internal.R.string.anr_title));
+        setTitle(res.getText(com.android.internal.R.string.wimm_anr_title));
         getWindow().addFlags(FLAG_SYSTEM_ERROR);
         getWindow().setTitle("Application Not Responding: " + app.info.processName);
     }

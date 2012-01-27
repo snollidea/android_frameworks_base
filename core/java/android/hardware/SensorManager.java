@@ -922,6 +922,7 @@ public class SensorManager
                         l.addSensor(sensor);
                     }
                 }
+                Log.d(TAG, "registerListener~ " + name);
             }
         } catch (RemoteException e) {
             Log.e(TAG, "RemoteException in registerListener: ", e);
@@ -949,6 +950,7 @@ public class SensorManager
                         if (l.removeSensor(sensor) == 0) {
                             sListeners.remove(i);
                         }
+                        Log.d(TAG, "unregisterListener~ " + name);
                         break;
                     }
                 }

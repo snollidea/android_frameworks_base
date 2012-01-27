@@ -137,13 +137,20 @@ public class WifiMonitor {
         }
         
         public void run() {
+		
+	//for_ticket#590_s
+	mWifiStateTracker.holdTheLock();
+        Log.d(TAG, "MonitorThread start");
+	//for_ticket#590_e
 
             if (connectToSupplicant()) {
                 // Send a message indicating that it is now possible to send commands
                 // to the supplicant
                 mWifiStateTracker.notifySupplicantConnection();
+		mWifiStateTracker.letItGo(); //for_ticket#590
             } else {
                 mWifiStateTracker.notifySupplicantLost();
+		mWifiStateTracker.letItGo(); //for_ticket#590
                 return;
             }
 
@@ -229,6 +236,7 @@ public class WifiMonitor {
             int connectTries = 0;
 
             while (true) {
+	    Log.d(TAG, "Try connecting to supplicant for the " + connectTries + " time"); //for_ticket#590
                 synchronized (mWifiStateTracker) {
                     if (WifiNative.connectToSupplicant()) {
                         return true;

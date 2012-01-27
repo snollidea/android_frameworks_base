@@ -26,4 +26,7 @@ interface ISensorService
 {
     Bundle getDataChannel();
     boolean enableSensor(IBinder listener, String name, int sensor, int enable);
+    boolean isUsingSensor(int sensor);  // WIMM
+    boolean isSuspendedForLowPower();  // WIMM
+    void setSuspendedForLowPower(boolean suspended);  // WIMM
 }

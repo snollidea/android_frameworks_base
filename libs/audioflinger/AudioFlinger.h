@@ -352,6 +352,9 @@ private:
                     bool                    mStandby;
                     int                     mId;
                     bool                    mExiting;
+#ifdef SLSI_S5P6442
+                    bool                    mEndFlag;
+#endif /*SLSI_S5P6442 */
     };
 
     // --- PlaybackThread ---

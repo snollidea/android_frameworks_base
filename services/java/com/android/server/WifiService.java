@@ -95,6 +95,12 @@ public class WifiService extends IWifiManager.Stub {
     private boolean mDeviceIdle;
     private int mPluggedType;
 
+    private volatile boolean mPendingEnableOrDisable = false;
+
+    // NJV 20110621 - Only execute idle mode code if idle mode is allowed
+    // We're no longer going to idle mode for WiFi when screen is off
+    private static final boolean mEnableIdleMode = false;
+
     // true if the user enabled Wifi while in airplane mode
     private boolean mAirplaneModeOverwridden;
 
@@ -323,9 +329,13 @@ public class WifiService extends IWifiManager.Stub {
         final int eventualWifiState = enable ? WIFI_STATE_ENABLED : WIFI_STATE_DISABLED;
 
         if (mWifiState == eventualWifiState) {
+            if ( persist && ( enable != getPersistedWifiEnabled() ) ) 
+                Log.w(TAG, "Wifi setting will not be updated: state is unchanged");
             return true;
         }
         if (enable && isAirplaneModeOn() && !mAirplaneModeOverwridden) {
+            if ( persist && ( enable != getPersistedWifiEnabled() ) ) 
+                Log.w(TAG, "Wifi setting will not be updated: airplane mode is on");
             return false;
         }
 
@@ -346,7 +356,6 @@ public class WifiService extends IWifiManager.Stub {
             registerForBroadcasts();
             mWifiStateTracker.startEventLoop();
         } else {
-
             mContext.unregisterReceiver(mReceiver);
            // Remove notification (it will no-op if it isn't visible)
             mWifiStateTracker.setNotificationVisible(false, 0, false, 0);
@@ -896,16 +905,22 @@ public class WifiService extends IWifiManager.Stub {
                     : config.enterpriseFields) {
                 String varName = field.varName();
                 String value = field.value();
-                if ((value != null) && !WifiNative.setNetworkVariableCommand(
-                    netId,
-                    varName,
-                    value)) {
-                    if (DBG) {
-                        Log.d(TAG, config.SSID + ": failed to set " + varName +
-                              ": " + value);
+                /*----- begin WIMM -----*/
+                // Prevent client screw-up by passing in a WifiConfiguration we gave it
+                // by preventing "*" as a key.
+                if (value != null && !value.equals("*")) {
+                    if (!WifiNative.setNetworkVariableCommand(
+                        netId,
+                        varName,
+                        value)) {
+                        if (DBG) {
+                            Log.d(TAG, config.SSID + ": failed to set " + varName +
+                                  ": " + value);
+                        }
+                        break setVariables;
                     }
-                    break setVariables;
                 }
+                /*----- end WIMM -----*/
             }
 
             return netId;
@@ -1317,35 +1332,42 @@ public class WifiService extends IWifiManager.Stub {
                 Log.d(TAG, "ACTION_SCREEN_OFF");
                 mScreenOff = true;
                 mWifiStateTracker.enableRssiPolling(false);
+
+
                 /*
                  * Set a timer to put Wi-Fi to sleep, but only if the screen is off
                  * AND the "stay on while plugged in" setting doesn't match the
                  * current power conditions (i.e, not plugged in, plugged in to USB,
                  * or plugged in to AC).
                  */
-                if (!shouldWifiStayAwake(stayAwakeConditions, mPluggedType)) {
-                    WifiInfo info = mWifiStateTracker.requestConnectionInfo();
-                    if (info.getSupplicantState() != SupplicantState.COMPLETED) {
-                        // we used to go to sleep immediately, but this caused some race conditions
-                        // we don't have time to track down for this release.  Delay instead, but not
-                        // as long as we would if connected (below)
-                        // TODO - fix the race conditions and switch back to the immediate turn-off
-                        long triggerTime = System.currentTimeMillis() + (2*60*1000); // 2 min
-                        Log.d(TAG, "setting ACTION_DEVICE_IDLE timer for 120,000 ms");
-                        mAlarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, mIdleIntent);
-                        //  // do not keep Wifi awake when screen is off if Wifi is not associated
-                        //  mDeviceIdle = true;
-                        //  updateWifiState();
-                    } else {
-                        long triggerTime = System.currentTimeMillis() + idleMillis;
-                        Log.d(TAG, "setting ACTION_DEVICE_IDLE timer for " + idleMillis + "ms");
-                        mAlarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, mIdleIntent);
+
+                // NJV 20110621 - Only execute idle mode code if idle mode is allowed
+                if (mEnableIdleMode)  {
+                    if (!shouldWifiStayAwake(stayAwakeConditions, mPluggedType)) {
+                        WifiInfo info = mWifiStateTracker.requestConnectionInfo();
+                        if (info.getSupplicantState() != SupplicantState.COMPLETED) {
+                            // we used to go to sleep immediately, but this caused some race conditions
+                            // we don't have time to track down for this release.  Delay instead, but not
+                            // as long as we would if connected (below)
+                            // TODO - fix the race conditions and switch back to the immediate turn-off
+                            long triggerTime = System.currentTimeMillis() + (2*60*1000); // 2 min
+                            Log.d(TAG, "setting ACTION_DEVICE_IDLE timer for 120,000 ms, state = " + info.getSupplicantState());
+                            mAlarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, mIdleIntent);
+                            // do not keep Wifi awake when screen is off if Wifi is not associated
+                            //mDeviceIdle = true;
+                            //updateWifiState();
+                        } else {
+                            long triggerTime = System.currentTimeMillis() + idleMillis;
+                            Log.d(TAG, "setting ACTION_DEVICE_IDLE timer for " + idleMillis + "ms");
+                            mAlarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, mIdleIntent);
+                        }
                     }
                 }
-                /* we can return now -- there's nothing to do until we get the idle intent back */
+
+                /* we can return now -- there's nothing to do until/unless we get the idle intent back */
                 return;
             } else if (action.equals(ACTION_DEVICE_IDLE)) {
-                Log.d(TAG, "got ACTION_DEVICE_IDLE");
+                Log.d(TAG, "ACTION_DEVICE_IDLE");
                 mDeviceIdle = true;
             } else if (action.equals(Intent.ACTION_BATTERY_CHANGED)) {
                 /*
@@ -1357,15 +1379,26 @@ public class WifiService extends IWifiManager.Stub {
                  */
                 int pluggedType = intent.getIntExtra("plugged", 0);
                 Log.d(TAG, "ACTION_BATTERY_CHANGED pluggedType: " + pluggedType);
-                if (mScreenOff && shouldWifiStayAwake(stayAwakeConditions, mPluggedType) &&
-                        !shouldWifiStayAwake(stayAwakeConditions, pluggedType)) {
-                    long triggerTime = System.currentTimeMillis() + idleMillis;
-                    Log.d(TAG, "setting ACTION_DEVICE_IDLE timer for " + idleMillis + "ms");
-                    mAlarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, mIdleIntent);
-                    mPluggedType = pluggedType;
-                    return;
+                
+                // NJV 20110621 - Only execute idle mode code if idle mode is allowed
+                if (mEnableIdleMode)  {
+                    if (mScreenOff && shouldWifiStayAwake(stayAwakeConditions, mPluggedType) &&
+                            !shouldWifiStayAwake(stayAwakeConditions, pluggedType)) {
+                        long triggerTime = System.currentTimeMillis() + idleMillis;
+                        Log.d(TAG, "setting ACTION_DEVICE_IDLE timer for " + idleMillis + "ms");
+                        mAlarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, mIdleIntent);
+                        mPluggedType = pluggedType;
+                        return;
+                    }
                 }
+
                 mPluggedType = pluggedType;
+	//for_ticket453_s
+		if (mWifiStateTracker.isDhcpStarted()) {
+                      Log.d(TAG, "Dhcp is in process, do nothing");
+                return;
+                }
+	//for_ticket453_e
             } else if (action.equals(BluetoothA2dp.ACTION_SINK_STATE_CHANGED)) {
                 BluetoothA2dp a2dp = new BluetoothA2dp(mContext);
                 Set<BluetoothDevice> sinks = a2dp.getConnectedSinks();
@@ -1428,6 +1461,7 @@ public class WifiService extends IWifiManager.Stub {
     };
 
     private void sendEnableMessage(boolean enable, boolean persist, int uid) {
+        mPendingEnableOrDisable = true;
         Message msg = Message.obtain(mWifiHandler,
                                      (enable ? MESSAGE_ENABLE_WIFI : MESSAGE_DISABLE_WIFI),
                                      (persist ? 1 : 0), uid);
@@ -1439,6 +1473,10 @@ public class WifiService extends IWifiManager.Stub {
     }
 
     private void updateWifiState() {
+        if ( mPendingEnableOrDisable ) {
+            Log.i(TAG, "updateWifiState~ ignored while pending enable/disable");
+            return;
+        }
         boolean wifiEnabled = getPersistedWifiEnabled();
         boolean airplaneMode = isAirplaneModeOn() && !mAirplaneModeOverwridden;
         boolean lockHeld = mLocks.hasLocks();
@@ -1450,7 +1488,6 @@ public class WifiService extends IWifiManager.Stub {
         } else {
             strongestLockMode = WifiManager.WIFI_MODE_FULL;
         }
-
         synchronized (mWifiHandler) {
             if (mWifiState == WIFI_STATE_ENABLING && !airplaneMode) {
                 return;
@@ -1535,6 +1572,7 @@ public class WifiService extends IWifiManager.Stub {
 
                 case MESSAGE_ENABLE_WIFI:
                     setWifiEnabledBlocking(true, msg.arg1 == 1, msg.arg2);
+                    mPendingEnableOrDisable = hasMessages(MESSAGE_ENABLE_WIFI) || hasMessages(MESSAGE_DISABLE_WIFI);
                     sWakeLock.release();
                     break;
 
@@ -1548,6 +1586,7 @@ public class WifiService extends IWifiManager.Stub {
                     // a non-zero msg.arg1 value means the "enabled" setting
                     // should be persisted
                     setWifiEnabledBlocking(false, msg.arg1 == 1, msg.arg2);
+                    mPendingEnableOrDisable = hasMessages(MESSAGE_ENABLE_WIFI) || hasMessages(MESSAGE_DISABLE_WIFI);
                     sWakeLock.release();
                     break;
 

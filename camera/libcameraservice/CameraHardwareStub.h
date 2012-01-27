@@ -29,8 +29,13 @@ namespace android {
 
 class CameraHardwareStub : public CameraHardwareInterface {
 public:
+#ifndef SLSI_S5P6442
     virtual sp<IMemoryHeap> getPreviewHeap() const;
     virtual sp<IMemoryHeap> getRawHeap() const;
+#else /* SLSI_S5P6442 */
+    virtual sp<IMemoryHeap> getPreviewHeap();
+    virtual sp<IMemoryHeap> getRawHeap();
+#endif /*SLSI_S5P6442 */
 
     virtual void        setCallbacks(notify_callback notify_cb,
                                      data_callback data_cb,

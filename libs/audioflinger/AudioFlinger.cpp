@@ -43,6 +43,17 @@
 #include "AudioMixer.h"
 #include "AudioFlinger.h"
 
+#ifdef SLSI_S5P6442
+
+//johnny_V24_2 #define DMC_DOWNSAMPLE
+#undef ENDSOUND_UNDERRUN
+
+#ifdef DMC_DOWNSAMPLE
+#include <media/samsungResample.h>
+#endif
+
+#endif /*SLSI_S5P6442 */
+
 #ifdef WITH_A2DP
 #include "A2dpAudioInterface.h"
 #endif
@@ -62,6 +73,11 @@ static const char* kDeadlockedString = "AudioFlinger may be deadlocked\n";
 static const char* kHardwareLockedString = "Hardware lock is taken\n";
 
 //static const nsecs_t kStandbyTimeInNsecs = seconds(3);
+#ifdef SLSI_S5P6442
+#ifdef ENDSOUND_UNDERRUN
+static const nsecs_t kEndStreambyTimeInNsecs = milliseconds(50); 
+#endif
+#endif /*SLSI_S5P6442 */
 static const float MAX_GAIN = 4096.0f;
 
 // retry counts for buffer fill timeout
@@ -973,7 +989,6 @@ sp<AudioFlinger::PlaybackThread::Track>  AudioFlinger::PlaybackThread::createTra
 {
     sp<Track> track;
     status_t lStatus;
-
     if (mType == DIRECT) {
         if (sampleRate != mSampleRate || format != mFormat || channelCount != mChannelCount) {
             LOGE("createTrack_l() Bad parameter:  sampleRate %d format %d, channelCount %d for output %p",
@@ -1007,7 +1022,6 @@ sp<AudioFlinger::PlaybackThread::Track>  AudioFlinger::PlaybackThread::createTra
         mTracks.add(track);
     }
     lStatus = NO_ERROR;
-
 Exit:
     if(status) {
         *status = lStatus;
@@ -1190,6 +1204,11 @@ bool AudioFlinger::MixerThread::threadLoop()
     Vector< sp<Track> > tracksToRemove;
     uint32_t mixerStatus = MIXER_IDLE;
     nsecs_t standbyTime = systemTime();
+#ifdef SLSI_S5P6442
+#ifdef ENDSOUND_UNDERRUN
+    nsecs_t endStreamTime = systemTime();
+#endif
+#endif /*SLSI_S5P6442 */
     size_t mixBufferSize = mFrameCount * mFrameSize;
     // FIXME: Relaxed timing because of a certain device that can't meet latency
     // Should be reduced to 2x after the vendor fixes the driver issue
@@ -1219,6 +1238,16 @@ bool AudioFlinger::MixerThread::threadLoop()
             }
 
             const SortedVector< wp<Track> >& activeTracks = mActiveTracks;
+#ifdef SLSI_S5P6442
+#ifdef ENDSOUND_UNDERRUN
+            if UNLIKELY(!activeTracks.size() && systemTime() > endStreamTime) {
+				if(!mEndFlag) {
+					mOutput->endStream();
+					mEndFlag = true;
+				}
+			}
+#endif
+#endif /*SLSI_S5P6442 */
 
             // put audio hardware into standby after short delay
             if UNLIKELY((!activeTracks.size() && systemTime() > standbyTime) ||
@@ -1251,6 +1280,11 @@ bool AudioFlinger::MixerThread::threadLoop()
                     }
 
                     standbyTime = systemTime() + kStandbyTimeInNsecs;
+#ifdef SLSI_S5P6442
+#ifdef ENDSOUND_UNDERRUN
+                    endStreamTime = systemTime() + kEndStreambyTimeInNsecs;
+#endif
+#endif /*SLSI_S5P6442 */
                     sleepTime = idleSleepTime;
                     continue;
                 }
@@ -1264,6 +1298,11 @@ bool AudioFlinger::MixerThread::threadLoop()
             mAudioMixer->process(curBuf);
             sleepTime = 0;
             standbyTime = systemTime() + kStandbyTimeInNsecs;
+#ifdef SLSI_S5P6442
+#ifdef ENDSOUND_UNDERRUN
+            endStreamTime = systemTime() + kEndStreambyTimeInNsecs;
+#endif
+#endif /*SLSI_S5P6442 */
         } else {
             // If no tracks are ready, sleep once for the duration of an output
             // buffer size, then write 0s to the output
@@ -1276,7 +1315,11 @@ bool AudioFlinger::MixerThread::threadLoop()
             } else if (mBytesWritten != 0 ||
                        (mixerStatus == MIXER_TRACKS_ENABLED && longStandbyExit)) {
                 memset (curBuf, 0, mixBufferSize);
+#ifdef SLSI_S5P6442
+                sleepTime = 1;
+#else /* SLSI_S5P6442 */
                 sleepTime = 0;
+#endif /*SLSI_S5P6442 */
                 LOGV_IF((mBytesWritten == 0 && (mixerStatus == MIXER_TRACKS_ENABLED && longStandbyExit)), "anticipated start");
             }
         }
@@ -1337,6 +1380,12 @@ uint32_t AudioFlinger::MixerThread::prepareTracks_l(const SortedVector< wp<Track
 
         Track* const track = t.get();
         audio_track_cblk_t* cblk = track->cblk();
+
+#ifdef SLSI_S5P6442
+		if(mEndFlag) {
+			mEndFlag = false;
+		}
+#endif /*SLSI_S5P6442 */
 
         // The first time a track is added we wait
         // for all its buffers to be filled before processing it
@@ -3054,6 +3103,15 @@ bool AudioFlinger::RecordThread::threadLoop()
     AudioBufferProvider::Buffer buffer;
     sp<RecordTrack> activeTrack;
 
+#ifdef SLSI_S5P6442
+#ifdef DMC_DOWNSAMPLE
+	short int Input_44k_Buf[12348] = {0, };
+	int bytes_left = 0;
+
+	SamsungDOWNsampleInit();
+	SamsungDOWNsampleFrameSizeConfig(FRAME_2240);
+#endif
+#endif /*SLSI_S5P6442 */
     // start recording
     while (!exitPending()) {
 
@@ -3143,6 +3201,36 @@ bool AudioFlinger::RecordThread::threadLoop()
                             }
                         }
                         if (framesOut && mFrameCount == mRsmpInIndex) {
+#ifdef SLSI_S5P6442
+#ifdef DMC_DOWNSAMPLE
+                            short 	*RsmpOutbuf;
+                            if (8000 == mReqSampleRate) {
+                                if (framesOut == mFrameCount &&
+                                    (mChannelCount == mReqChannelCount || mFormat != AudioSystem::PCM_16_BIT)) {
+                                    mBytesRead = mInput->read(Input_44k_Buf, 24696);
+									RsmpOutbuf = (short*)buffer.raw;
+                                    framesOut = 0;
+                                } else {
+                                    mBytesRead = mInput->read(Input_44k_Buf, 24696);
+									RsmpOutbuf = (short*)mRsmpInBuffer;
+                                    mRsmpInIndex = 0;
+                                }								
+								if (mBytesRead < 0) {
+                                    LOGE("Error reading audio input");
+                                    sleep(1);
+                                    mRsmpInIndex = mFrameCount;
+                                    framesOut = 0;
+                                    buffer.frameCount = 0;
+                                }
+								if (mBytesRead < 24696) {
+									LOGE("mBytesRead is smaller than 24696");
+									usleep(5000);
+								}            
+
+                                SamsungDOWNsampleInOutConfig(Input_44k_Buf, RsmpOutbuf);
+                                SamsungDOWNsampleExe();
+                            } else {
+#endif /*DMC_DOWNSAMPLE */
                             if (framesOut == mFrameCount &&
                                 (mChannelCount == mReqChannelCount || mFormat != AudioSystem::PCM_16_BIT)) {
                                 mBytesRead = mInput->read(buffer.raw, mInputBytes);
@@ -3160,6 +3248,24 @@ bool AudioFlinger::RecordThread::threadLoop()
                                 framesOut = 0;
                                 buffer.frameCount = 0;
                             }
+//johnny_V24_2                       }
+#else /* SLSI_S5P6442 */
+                            if (framesOut == mFrameCount &&
+                                (mChannelCount == mReqChannelCount || mFormat != AudioSystem::PCM_16_BIT)) {
+                                mBytesRead = mInput->read(buffer.raw, mInputBytes);
+                                framesOut = 0;
+                            } else {
+                                mBytesRead = mInput->read(mRsmpInBuffer, mInputBytes);
+                                mRsmpInIndex = 0;
+                            }
+                            if (mBytesRead < 0) {
+                                LOGE("Error reading audio input");
+                                sleep(1);
+                                mRsmpInIndex = mFrameCount;
+                                framesOut = 0;
+                                buffer.frameCount = 0;
+                            }
+#endif /*SLSI_S5P6442 */
                         }
                     }
                 } else {

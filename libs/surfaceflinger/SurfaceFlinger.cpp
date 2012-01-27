@@ -519,11 +519,25 @@ void SurfaceFlinger::postFramebuffer()
 {
     if (!mInvalidRegion.isEmpty()) {
         const DisplayHardware& hw(graphicPlane(0).displayHardware());
+#ifdef SLSI_S5P6442
+        /* mDebugRegion, mDebugBackground value is 0 */
+        /* So do not calculate swap-time */
+        //const nsecs_t now = systemTime();
+        //mDebugInSwapBuffers = now;
+#else
         const nsecs_t now = systemTime();
         mDebugInSwapBuffers = now;
+#endif /* SLSI_S5P6442 */
+
         hw.flip(mInvalidRegion);
+
+#ifdef SLSI_S5P6442
+        //mLastSwapBufferTime = systemTime() - now;
+        //mDebugInSwapBuffers = 0;
+#else
         mLastSwapBufferTime = systemTime() - now;
         mDebugInSwapBuffers = 0;
+#endif /* SLSI_S5P6442 */
         mInvalidRegion.clear();
     }
 }
@@ -941,6 +955,9 @@ void SurfaceFlinger::debugFlashRegions()
         };
         glVertexPointer(2, GL_FLOAT, 0, vertices);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+#ifdef SLSI_S5P6442
+        glFinish();
+#endif /* SLSI_S5P6442 */
     }
     
     if (mInvalidRegion.isEmpty()) {
@@ -999,6 +1016,9 @@ void SurfaceFlinger::drawWormhole() const
             const GLint sy = height - (r.top + r.height());
             glScissor(r.left, sy, r.width(), r.height());
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+#ifdef SLSI_S5P6442
+            glFinish();
+#endif /* SLSI_S5P6442 */
         }
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     }

@@ -75,6 +75,13 @@ setScreenState(JNIEnv *env, jobject clazz, jboolean on)
     return set_screen_state(on);
 }
 
+#ifdef SLSI_S5P6442
+static int setCpufreqState(JNIEnv *env, jobject clazz, jboolean on)
+{
+    return set_cpufreq_state(on);
+}
+#endif /*SLSI_S5P6442 */
+
 static void android_os_Power_shutdown(JNIEnv *env, jobject clazz)
 {
     sync();
@@ -104,6 +111,9 @@ static JNINativeMethod method_table[] = {
     { "releaseWakeLock", "(Ljava/lang/String;)V", (void*)releaseWakeLock },
     { "setLastUserActivityTimeout", "(J)I", (void*)setLastUserActivityTimeout },
     { "setScreenState", "(Z)I", (void*)setScreenState },
+#ifdef SLSI_S5P6442
+    { "setCpufreqState", "(Z)I", (void*)setCpufreqState },
+#endif /*SLSI_S5P6442 */
     { "shutdown", "()V", (void*)android_os_Power_shutdown },
     { "reboot", "(Ljava/lang/String;)V", (void*)android_os_Power_reboot },
 };

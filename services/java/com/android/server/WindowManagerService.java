@@ -39,6 +39,7 @@ import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_STARTING;
 import static android.view.WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
 import static android.view.WindowManager.LayoutParams.TYPE_INPUT_METHOD;
 import static android.view.WindowManager.LayoutParams.TYPE_INPUT_METHOD_DIALOG;
+import static android.view.WindowManager.LayoutParams.TYPE_PRIORITY_PHONE;
 import static android.view.WindowManager.LayoutParams.TYPE_WALLPAPER;
 
 import com.android.internal.app.IBatteryStats;
@@ -448,6 +449,8 @@ public class WindowManagerService extends IWindowManager.Stub
     static final long WALLPAPER_TIMEOUT = 150;
     // Time we wait after a timeout before trying to wait again.
     static final long WALLPAPER_TIMEOUT_RECOVERY = 10000;
+    
+    WindowState mWatchfaceTarget = null;
     
     AppWindowToken mFocusedApp = null;
 
@@ -1922,6 +1925,8 @@ public class WindowManagerService extends IWindowManager.Stub
                 if (attrs.type == TYPE_WALLPAPER) {
                     mLastWallpaperTimeoutTime = 0;
                     adjustWallpaperWindowsLocked();
+                } else if (attrs.type == TYPE_PRIORITY_PHONE) {
+                    mWatchfaceTarget = win;
                 } else if ((attrs.flags&FLAG_SHOW_WALLPAPER) != 0) {
                     adjustWallpaperWindowsLocked();
                 }
@@ -5057,6 +5062,8 @@ public class WindowManagerService extends IWindowManager.Stub
 
         synchronized(mWindowMap) {
             if (!target.isVisibleLw()) {
+                Log.i(TAG, "WINDOW INVISIBLE during motion dispatch: " + target);
+            
                 // During this motion dispatch, the target window has become
                 // invisible.
                 if (mSendingPointersToWallpaper) {
@@ -5895,7 +5902,32 @@ public class WindowManagerService extends IWindowManager.Stub
                             mMotionTarget = null;
                         }
                     }
-
+                    
+                    // two finger events get sent to watchface window
+                    else if (action == MotionEvent.ACTION_POINTER_2_DOWN) {
+                        if (mMotionTarget != mWatchfaceTarget) {
+                            // cancel any previous DOWN event with existing target
+                            if (mMotionTarget != null) {
+                                try {
+                                    if (DEBUG_INPUT) Log.i(TAG, "Sending cancel event: " + mMotionTarget);
+                                    MotionEvent cancelEvent = MotionEvent.obtain(nextMotion);
+                                    cancelEvent.setAction(MotionEvent.ACTION_CANCEL);
+                                    mMotionTarget.mClient.dispatchPointer(cancelEvent, cancelEvent.getEventTime(), false);
+                                } catch (android.os.RemoteException e) {
+                                    Log.i(TAG, "WINDOW DIED during cancel dispatch: " + mMotionTarget);
+                                    try {
+                                        removeWindow(mMotionTarget.mSession, mMotionTarget.mClient);
+                                    } catch (java.util.NoSuchElementException ex) {}
+                                } finally {
+                                    mMotionTarget = null;
+                                }
+                            }
+                            
+                            if (DEBUG_INPUT) Log.i(TAG, "Setting motion target to watchface: " + mWatchfaceTarget);
+                            mMotionTarget = mWatchfaceTarget;
+                        }
+                    }
+                    
                     target = mMotionTarget;
                 }
             }

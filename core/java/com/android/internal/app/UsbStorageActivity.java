@@ -44,7 +44,9 @@ public class UsbStorageActivity extends AlertActivity implements DialogInterface
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction() == Intent.ACTION_BATTERY_CHANGED) {
-                handleBatteryChanged(intent);
+                // wuhua 20100903 modify start: remove battery changed message before Battery Charge OK
+                //handleBatteryChanged(intent);
+                // wuhua 20100903 modify end: remove battery changed message before Battery Charge OK
             }
         }
     };

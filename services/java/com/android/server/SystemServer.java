@@ -204,6 +204,7 @@ class ServerThread extends Thread {
         WallpaperManagerService wallpaper = null;
 
         if (factoryTest != SystemServer.FACTORY_TEST_LOW_LEVEL) {
+        /* Disable services not supported on WIMM module
             try {
                 Log.i(TAG, "Status Bar");
                 statusBar = new StatusBarService(context);
@@ -211,13 +212,14 @@ class ServerThread extends Thread {
             } catch (Throwable e) {
                 Log.e(TAG, "Failure starting StatusBarService", e);
             }
-
+            
             try {
                 Log.i(TAG, "Clipboard Service");
                 ServiceManager.addService("clipboard", new ClipboardService(context));
             } catch (Throwable e) {
                 Log.e(TAG, "Failure starting Clipboard Service", e);
             }
+        */
 
             try {
                 Log.i(TAG, "Input Method Service");
@@ -281,6 +283,7 @@ class ServerThread extends Thread {
                 Log.e(TAG, "Failure starting Location Manager", e);
             }
 
+        /* Disable services not supported on WIMM module
             try {
                 Log.i(TAG, "Search Service");
                 ServiceManager.addService( Context.SEARCH_SERVICE, new SearchManagerService(context) );
@@ -305,7 +308,7 @@ class ServerThread extends Thread {
             } catch (Throwable e) {
                 Log.e(TAG, "Failure starting Checkin Service", e);
             }
-
+        */
             try {
                 Log.i(TAG, "Wallpaper Service");
                 wallpaper = new WallpaperManagerService(context);
@@ -313,7 +316,7 @@ class ServerThread extends Thread {
             } catch (Throwable e) {
                 Log.e(TAG, "Failure starting Wallpaper Service", e);
             }
-
+            
             try {
                 Log.i(TAG, "Audio Service");
                 ServiceManager.addService(Context.AUDIO_SERVICE, new AudioService(context));
@@ -321,6 +324,7 @@ class ServerThread extends Thread {
                 Log.e(TAG, "Failure starting Audio Service", e);
             }
 
+        /* Disable services not supported on WIMM module
             try {
                 Log.i(TAG, "Headset Observer");
                 // Listen for wired headset changes
@@ -357,6 +361,7 @@ class ServerThread extends Thread {
             } catch (Throwable e) {
                 Log.e(TAG, "Failure installing status bar icons", e);
             }
+        */
         }
 
         // make sure the ADB_ENABLED setting value matches the secure property value

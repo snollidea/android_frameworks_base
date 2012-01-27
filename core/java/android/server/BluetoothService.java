@@ -69,7 +69,7 @@ import java.util.Random;
 
 public class BluetoothService extends IBluetooth.Stub {
     private static final String TAG = "BluetoothService";
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
 
     private int mNativeData;
     private BluetoothEventLoop mEventLoop;
@@ -106,7 +106,6 @@ public class BluetoothService extends IBluetooth.Stub {
             BluetoothUuid.Handsfree,
             BluetoothUuid.HSP,
             BluetoothUuid.ObexObjectPush };
-
 
     private final Map<String, String> mAdapterProperties;
     private final HashMap<String, Map<String, String>> mDeviceProperties;
@@ -430,7 +429,7 @@ public class BluetoothService extends IBluetooth.Stub {
                 // records, use a DBUS call instead.
                 switch (msg.arg1) {
                 case 1:
-                    Log.d(TAG, "Registering hfag record");
+					Log.d(TAG, "Registering hfag record");
                     SystemService.start("hfag");
                     mHandler.sendMessageDelayed(
                             mHandler.obtainMessage(MESSAGE_REGISTER_SDP_RECORDS, 2, -1), 500);
@@ -450,6 +449,12 @@ public class BluetoothService extends IBluetooth.Stub {
                 case 4:
                     Log.d(TAG, "Registering pbap record");
                     SystemService.start("pbap");
+                    mHandler.sendMessageDelayed(
+                            mHandler.obtainMessage(MESSAGE_REGISTER_SDP_RECORDS, 5, -1), 500);
+                    break;
+                case 5:
+					Log.d(TAG, "Registering hf record");
+                    SystemService.start("hf");
                     break;
                 }
                 break;
@@ -1291,7 +1296,9 @@ public class BluetoothService extends IBluetooth.Stub {
         }
 
         boolean ret;
-        if (getBondState(address) == BluetoothDevice.BOND_BONDED) {
+        // Just do the SDP if the device is already  created and UUIDs are not
+        // NULL, else create the device and then do SDP.
+        if (isRemoteDeviceInCache(address) && getRemoteUuids(address) != null) {
             String path = getObjectPathFromAddress(address);
             if (path == null) return false;
 

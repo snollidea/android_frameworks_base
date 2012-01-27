@@ -160,7 +160,17 @@ size_t AudioHardwareBase::getInputBufferSize(uint32_t sampleRate, int format, in
         return 0;
     }
 
+#ifdef SLSI_S5P6442
+    char value[PROPERTY_VALUE_MAX];
+    // if running in emulation - use the emulator driver
+    if (property_get("ro.kernel.qemu", value, 0))
+	  return 320;
+    else {
+        return 2240;// sangsu fix : optimizing input buffer size for recording
+    }
+#else /* SLSI_S5P6442 */
     return 320;
+#endif /* SLSI_S5P6442 */
 }
 
 status_t AudioHardwareBase::dumpState(int fd, const Vector<String16>& args)

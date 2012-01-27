@@ -18,6 +18,7 @@ package com.android.server;
 
 import android.content.Context;
 import android.hardware.ISensorService;
+import android.hardware.Sensor;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.RemoteException;
@@ -25,6 +26,9 @@ import android.os.IBinder;
 import android.util.Config;
 import android.util.Log;
 
+import java.io.DataOutputStream;
+import java.io.FileOutputStream;
+import java.lang.Exception;
 import java.util.ArrayList;
 
 import com.android.internal.app.IBatteryStats;
@@ -126,6 +130,11 @@ class SensorService extends ISensorService.Stub {
         }
         Binder.restoreCallingIdentity(identity);
 
+        if (enable!=SENSOR_DISABLE && mSuspendedForLowPower ) {
+            Log.w(TAG, "suspended for low power (sensor=" + name + ", id=" + sensor + ")");
+            return false;
+        }
+
         if (binder == null) {
             Log.w(TAG, "listener is null (sensor=" + name + ", id=" + sensor + ")");
             return false;
@@ -185,6 +194,68 @@ class SensorService extends ISensorService.Stub {
         }        
         return true;
     }
+    
+    // WIMM
+    public boolean isSuspendedForLowPower() {
+        return mSuspendedForLowPower;
+    }
+    
+    // WIMM
+    public void setSuspendedForLowPower(boolean suspended) throws RemoteException {
+    
+        mSuspendedForLowPower = suspended;
+        
+        /* 
+         * The current decision is to not shut off the sensors when entering
+         * low-power mode.  Instead, low-power mode will only prevent applications  
+         * from registering new sensor listeners.
+         */
+         
+        /*
+        if ( !suspended ) return;
+        
+        // When we disable the sensors for low power mode, we unregister the listeners in SensorService so
+        // that the sensors themselves are powered off.  However, the application's side of the binding 
+        // will still have its listeners registered in SensorManager.  Additionally, the SensorThread will
+        // exit when sensors_data_poll fails and can only be restarted by re-registering the listener.
+        // Therefore it is the application's responsibility to handle the ACTION_SENSOR_AVAILABILITY_CHANGED 
+        // intent and unregister its listeners when sensors are powered off, as well as re-register when   
+        // sensors are powered back on.
+        
+        // purge listeners
+        synchronized(mListeners) {
+            // copy the listener list as we'll be removing items as we iterate
+            ArrayList<Listener> listeners = new ArrayList<Listener>(mListeners);
+            
+            // iterate over each listener
+            int size = listeners.size();
+            for (int i=0 ; i<size ; i++) {
+                Listener listener = listeners.get(i);
+                
+                // iterate over each sensor
+                for (int sensor=0; sensor<32; sensor++) {
+                    if (listener.hasSensor(sensor)) {
+                    
+                        // remove this listener from this sensor
+                        enableSensor(listener.mToken, null, sensor, SENSOR_DISABLE);
+                    }
+                }
+            }
+        }
+        */
+    }
+    
+    // WIMM
+    public boolean isUsingSensor(int sensor) throws RemoteException {
+        synchronized(mListeners) {
+            int size = mListeners.size();
+            for (int i=0 ; i<size ; i++) {
+                if (mListeners.get(i).hasSensor(sensor))
+                    return true;
+            }
+        }
+        return false;
+    }
 
     private void deactivateIfUnusedLocked(int sensor) throws RemoteException {
         int size = mListeners.size();
@@ -195,6 +266,7 @@ class SensorService extends ISensorService.Stub {
         _sensors_control_activate(sensor, false);
     }
 
+    private boolean mSuspendedForLowPower = false;
     private ArrayList<Listener> mListeners = new ArrayList<Listener>();
 
     private static native int _sensors_control_init();

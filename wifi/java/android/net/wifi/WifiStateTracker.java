@@ -32,6 +32,7 @@ import android.os.SystemProperties;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.os.PowerManager; //for_ticket#590
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.EventLog;
@@ -61,7 +62,7 @@ import java.net.UnknownHostException;
  */
 public class WifiStateTracker extends NetworkStateTracker {
 
-    private static final boolean LOCAL_LOGD = Config.LOGD || false;
+    private static final boolean LOCAL_LOGD = Config.LOGD || true;
     
     private static final String TAG = "WifiStateTracker";
 
@@ -153,7 +154,12 @@ public class WifiStateTracker extends NetworkStateTracker {
 
     private static final int DRIVER_POWER_MODE_AUTO = 0;
     private static final int DRIVER_POWER_MODE_ACTIVE = 1;
-
+    //for_ticket#590_s
+    private static final String WAKELOCK_TAG = "WifiStateTracker";
+    private static PowerManager.WakeLock sRestartWakeLock;
+    private static PowerManager.WakeLock sConnectWakeLock;;
+    //for_ticket#590_e
+    private static PowerManager.WakeLock sDhcpWakeLock; //for_ticket453
     /**
      * The current WPA supplicant loop state (used to detect looping behavior):
      */
@@ -330,7 +336,13 @@ public class WifiStateTracker extends NetworkStateTracker {
 
     public WifiStateTracker(Context context, Handler target) {
         super(context, target, ConnectivityManager.TYPE_WIFI, 0, "WIFI", "");
-        
+        //for_ticket#590_s
+	PowerManager powerManager = (PowerManager)mContext.getSystemService(Context.POWER_SERVICE);
+        sRestartWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG);
+        sConnectWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WifiMonitor");
+	//for_ticket#590_e
+	sDhcpWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DhcpProcess"); //for_ticket453
+ 
         mWifiInfo = new WifiInfo();
         mWifiMonitor = new WifiMonitor(this);
         mHaveIpAddress = false;
@@ -349,8 +361,10 @@ public class WifiStateTracker extends NetworkStateTracker {
         mNotificationEnabledSettingObserver.register();
 
         mSettingsObserver = new SettingsObserver(new Handler());
-
-        mInterfaceName = SystemProperties.get("wifi.interface", "tiwlan0");
+		/*qianliangliang add 20100802 begin:modify interface*/
+        //mInterfaceName = SystemProperties.get("wifi.interface", "tiwlan0");
+		mInterfaceName = SystemProperties.get("wifi.interface","eth0");
+		/*qianliangliang add 20100802 end*/
         sDnsPropNames = new String[] {
             "dhcp." + mInterfaceName + ".dns1",
             "dhcp." + mInterfaceName + ".dns2"
@@ -373,7 +387,24 @@ public class WifiStateTracker extends NetworkStateTracker {
     public SupplicantState getSupplicantState() {
         return mWifiInfo.getSupplicantState();
     }
+    //for_ticket#590_s
+    public void holdTheLock() {
+        sConnectWakeLock.acquire();
+	Log.d(TAG, "acquire sConnectWakeLock");
+    }
 
+    public void letItGo() {
+        if (sConnectWakeLock.isHeld()) {
+	    Log.d(TAG, "release sConnectWakeLock");
+            sConnectWakeLock.release();
+        }
+    }
+    //for_ticket#590_e
+    //for_ticket453_s
+    public boolean isDhcpStarted() {
+        return sDhcpWakeLock.isHeld();
+    }
+    //for_ticket453_e
     /**
      * Helper method: sets the supplicant state and keeps the network
      * info updated (string version).
@@ -1200,12 +1231,21 @@ public class WifiStateTracker extends NetworkStateTracker {
                     }
                     break;
                 case DRIVER_HUNG:
-                    Log.e(TAG, "Wifi Driver reports HUNG - reloading.");
+		    //for_ticket#590_s
+		    sRestartWakeLock.acquire();
+                    Log.d(TAG, "acquire sRestartWakeLock");
+		    //for_ticket#590_e
+		    Log.e(TAG, "Wifi Driver reports HUNG - reloading.");
                     /**
                      * restart the driver - toggle off and on
                      */
                     mWM.setWifiEnabled(false);
                     mWM.setWifiEnabled(true);
+		    //for_ticket#590_s
+		    if (sRestartWakeLock.isHeld()) {			                        	Log.d(TAG, "release sRestartWakeLock");
+                        sRestartWakeLock.release();
+                    }
+		    //for_ticket#590_e
                     break;
                 }
                 noteRunState();
@@ -1373,7 +1413,10 @@ public class WifiStateTracker extends NetworkStateTracker {
         int netId = -1;
         String[] lines = reply.split("\n");
         for (String line : lines) {
-            String[] prop = line.split(" *= *");
+            // WIMM #1663 
+            // SSIDs with an '=' sign were truncated.
+            // String[] prop = line.split(" *= *");
+            String[] prop = line.split("=",2);
             if (prop.length < 2)
                 continue;
             String name = prop[0];
@@ -1753,7 +1796,10 @@ public class WifiStateTracker extends NetworkStateTracker {
 
             switch (msg.what) {
                 case EVENT_DHCP_START:
-                    
+                    //for_ticket453_s
+			sDhcpWakeLock.acquire();
+                    	Log.d(TAG, "acquire sDhcpWakeLock");
+		    //for_ticket453_e
                     boolean modifiedBluetoothCoexistenceMode = false;
                     if (shouldDisableCoexistenceMode()) {
                         /*
@@ -1794,7 +1840,7 @@ public class WifiStateTracker extends NetworkStateTracker {
                         if (LOCAL_LOGD) Log.v(TAG, "DhcpHandler: DHCP request succeeded");
                     } else {
                         event = EVENT_INTERFACE_CONFIGURATION_FAILED;
-                        Log.i(TAG, "DhcpHandler: DHCP request failed: " +
+                        Log.e(TAG, "DhcpHandler: DHCP request failed: " +
                             NetworkUtils.getDhcpError());
                     }
                     synchronized (WifiStateTracker.this) {
@@ -1814,6 +1860,12 @@ public class WifiStateTracker extends NetworkStateTracker {
                             mTarget.sendEmptyMessage(event);
                         }
                     }
+		    //for_ticket453_s
+			if (sDhcpWakeLock.isHeld()) {
+                            Log.d(TAG, "release sDhcpWakeLock");
+                            sDhcpWakeLock.release();
+                        }
+		    //for_ticket453_e
                     break;
             }
         }

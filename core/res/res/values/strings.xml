@@ -18,6 +18,15 @@
 */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <string name="wimm_text_input_done">Done</string>
+    <string name="wimm_text_input_delete">Delete</string>
+    <string name="wimm_force_close">Quit</string>
+    <string name="wimm_anr_title">Alert</string>
+    <string name="wimm_aerr_title">Error</string>
+    <string name="wimm_aerr_application">The application <xliff:g id="application">%1$s</xliff:g> (process <xliff:g id="process">%2$s</xliff:g>) has experienced an error.</string>
+    <string name="wimm_aerr_process">The process <xliff:g id="process">%1$s</xliff:g> has experienced an error.</string>
+
     <!-- Suffix added to a number to signify size in bytes. -->
     <string name="byteShort">B</string>
     <!-- Suffix added to a number to signify size in kilobytes. -->
@@ -250,7 +259,7 @@
 
     <!-- Display name for any time a piece of data refers to the owner of the phone. For example, this could be used in place of the phone's phone number. -->
     <string name="me">Me</string>
-
+    
     <!-- Power Dialog --> <skip />
     <!-- Title for the Phone Options dialog to lock the screen, turn off the phone etc. -->
     <string name="power_dialog">Phone options</string>

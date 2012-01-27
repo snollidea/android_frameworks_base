@@ -1850,7 +1850,15 @@ class PackageManagerService extends IPackageManager.Stub {
                         && (p.applicationInfo.flags&ApplicationInfo.FLAG_PERSISTENT) != 0
                         && (!mSafeMode || (p.applicationInfo.flags
                                 &ApplicationInfo.FLAG_SYSTEM) != 0)) {
-                    finalList.add(p.applicationInfo);
+                    /* 
+                     * WIMM: cherry-picked fix to allow persistent applications to load external libraries
+                     * http://groups.google.com/group/android-platform/browse_thread/thread/23ffbefbb43d50df
+                     */
+                    // finalList.add(p.applicationInfo);
+                    ApplicationInfo ai = PackageParser.generateApplicationInfo(p, flags);
+                    if(ai != null) {
+                        finalList.add(ai);
+                    }
                 }
             }
         }

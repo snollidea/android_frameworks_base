@@ -128,7 +128,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX bookmarksIndex2 ON bookmarks (shortcut);");
 
         // Populate bookmarks table with initial bookmarks
-        loadBookmarks(db);
+        // loadBookmarks(db);
 
         // Load initial volume levels into DB
         loadVolumeLevels(db);
@@ -771,6 +771,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         loadBooleanSetting(stmt, Settings.System.AUTO_TIME,
                 R.bool.def_auto_time); // Sync time to NITZ
+
+        loadStringSetting(stmt, Settings.System.TIME_12_24,
+                R.string.def_time_12_24);
 
         loadIntegerSetting(stmt, Settings.System.SCREEN_BRIGHTNESS,
                 R.integer.def_screen_brightness);

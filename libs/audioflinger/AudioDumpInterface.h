@@ -50,6 +50,9 @@ public:
     virtual uint32_t    latency() const;
     virtual status_t    setVolume(float left, float right);
     virtual status_t    standby();
+#ifdef SLSI_S5P6442
+	virtual status_t    endStream() {return NO_ERROR;}
+#endif /*SLSI_S5P6442 */
     virtual status_t    setParameters(const String8& keyValuePairs);
     virtual String8     getParameters(const String8& keys);
     virtual status_t    dump(int fd, const Vector<String16>& args);

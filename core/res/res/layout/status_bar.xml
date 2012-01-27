@@ -30,6 +30,16 @@
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         android:orientation="horizontal">
+        
+        <ImageView android:id="@+id/status_home" 
+     					 android:layout_width="25dip" 
+      				 android:layout_height="25dip"
+      				 android:clickable="true"
+      				 android:layout_gravity="top" 
+     					 android:paddingTop="1dip" 
+     					 android:paddingRight="1dip" 
+     					 android:paddingLeft="1dip" 
+     					 android:src="@drawable/btn_sbicon_home" /> 
             
         <com.android.server.status.IconMerger android:id="@+id/notificationIcons"
             android:layout_width="0dip"
@@ -47,6 +57,24 @@
             android:paddingRight="6dip"
             android:gravity="center_vertical"
             android:orientation="horizontal"/>    
+        <ImageView android:id="@+id/status_menu" 
+    				   android:layout_width="25dip" 
+    				   android:layout_height="25dip" 
+   				     android:clickable="true"
+    				   android:layout_gravity="top" 
+    				   android:paddingTop="1dip" 
+    				   android:paddingRight="1dip" 
+    				   android:paddingLeft="1dip" 
+    				   android:src="@drawable/btn_sbicon_menu" />     
+     		<ImageView android:id="@+id/status_back" 
+     					 android:layout_width="25dip" 
+ 							 android:layout_height="25dip"
+     					 android:clickable="true"
+               android:layout_gravity="top" 
+     					 android:paddingTop="1dip" 
+    				   android:paddingRight="1dip" 
+    				   android:paddingLeft="1dip" 
+  				     android:src="@drawable/btn_sbicon_back" /> 
     </LinearLayout>
         
     <LinearLayout android:id="@+id/ticker"
@@ -87,7 +115,7 @@
                 android:textColor="#ff000000" />
         </com.android.server.status.TickerView>
     </LinearLayout>
-
+    
     <com.android.server.status.DateView android:id="@+id/date"
         android:layout_width="wrap_content"
         android:layout_height="fill_parent"

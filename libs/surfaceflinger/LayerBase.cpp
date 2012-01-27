@@ -304,6 +304,9 @@ void LayerBase::drawRegion(const Region& reg) const
             const GLint sy = fbHeight - (r.top + r.height());
             glScissor(r.left, sy, r.width(), r.height());
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4); 
+#ifdef SLSI_S5P6442
+            glFinish();
+#endif /* SLSI_S5P6442 */
         }
     }
 }
@@ -372,6 +375,9 @@ void LayerBase::clearWithOpenGL(const Region& clip, GLclampx red,
         const GLint sy = fbHeight - (r.top + r.height());
         glScissor(r.left, sy, r.width(), r.height());
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4); 
+#ifdef SLSI_S5P6442
+        glFinish();
+#endif /* SLSI_S5P6442 */
     }
 }
 
@@ -463,6 +469,9 @@ void LayerBase::drawWithOpenGL(const Region& clip, const Texture& texture) const
             const GLint sy = fbHeight - (r.top + r.height());
             glScissor(r.left, sy, r.width(), r.height());
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4); 
+#ifdef SLSI_S5P6442
+            glFinish();
+#endif /* SLSI_S5P6442 */
         }
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     } else {
@@ -476,6 +485,9 @@ void LayerBase::drawWithOpenGL(const Region& clip, const Texture& texture) const
             const GLint sy = fbHeight - (r.top + r.height());
             glScissor(r.left, sy, r.width(), r.height());
             glDrawTexiOES(x, y, 0, width, height);
+#ifdef SLSI_S5P6442
+            glFinish();
+#endif /* SLSI_S5P6442 */
         }
     }
 }
@@ -577,8 +589,15 @@ void LayerBase::loadTexture(Texture* texture,
             glTexImage2D(GL_TEXTURE_2D, 0,
                     GL_RGBA, texture->potWidth, texture->potHeight, 0,
                     GL_RGBA, GL_UNSIGNED_BYTE, data);
+#ifdef SLSI_S5P6442
+        } else if ( t.format == GGL_PIXEL_FORMAT_YCbCr_422_SP ||
+                    t.format == GGL_PIXEL_FORMAT_YCbCr_420_SP ||
+                    t.format == GGL_PIXEL_FORMAT_YCbCr_422_P  ||
+                    t.format == GGL_PIXEL_FORMAT_YCbCr_420_P) {
+#else /* SLSI_S5P6442 */
         } else if ( t.format == GGL_PIXEL_FORMAT_YCbCr_422_SP ||
                     t.format == GGL_PIXEL_FORMAT_YCbCr_420_SP) {
+#endif /*SLSI_S5P6442 */
             // just show the Y plane of YUV buffers
             glTexImage2D(GL_TEXTURE_2D, 0,
                     GL_LUMINANCE, texture->potWidth, texture->potHeight, 0,
@@ -606,8 +625,15 @@ void LayerBase::loadTexture(Texture* texture,
                     0, bounds.top, t.width, bounds.height(),
                     GL_RGBA, GL_UNSIGNED_BYTE,
                     t.data + bounds.top*t.stride*4);
+#ifdef SLSI_S5P6442
+        } else if ( t.format == GGL_PIXEL_FORMAT_YCbCr_422_SP ||
+                    t.format == GGL_PIXEL_FORMAT_YCbCr_420_SP ||
+                    t.format == GGL_PIXEL_FORMAT_YCbCr_422_P  ||
+                    t.format == GGL_PIXEL_FORMAT_YCbCr_420_P) {
+#else /* SLSI_S5P6442 */
         } else if ( t.format == GGL_PIXEL_FORMAT_YCbCr_422_SP ||
                     t.format == GGL_PIXEL_FORMAT_YCbCr_420_SP) {
+#endif /*SLSI_S5P6442 */
             // just show the Y plane of YUV buffers
             glTexSubImage2D(GL_TEXTURE_2D, 0,
                     0, bounds.top, t.width, bounds.height(),

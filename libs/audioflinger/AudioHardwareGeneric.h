@@ -52,6 +52,9 @@ public:
     virtual status_t    setVolume(float left, float right) { return INVALID_OPERATION; }
     virtual ssize_t     write(const void* buffer, size_t bytes);
     virtual status_t    standby();
+//#ifdef SLSI_S5P6442
+    virtual status_t    endStream() {return NO_ERROR;}
+//#endif /*SLSI_S5P6442 */
     virtual status_t    dump(int fd, const Vector<String16>& args);
     virtual status_t    setParameters(const String8& keyValuePairs);
     virtual String8     getParameters(const String8& keys);

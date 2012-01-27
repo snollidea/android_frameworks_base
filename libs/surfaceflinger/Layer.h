@@ -80,6 +80,9 @@ public:
     inline PixelFormat pixelFormat() const { return mFormat; }
 
 private:
+#ifdef SLSI_S5P6442
+    copybit_device_t*    mBlitEngine;
+#endif /* SLSI_S3C6410 */
     inline sp<GraphicBuffer> getFrontBufferLocked() {
         return mBuffers[mFrontBufferIndex];
     }

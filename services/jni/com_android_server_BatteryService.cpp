@@ -155,7 +155,7 @@ static int readFromFile(const char* path, char* buf, size_t size)
     return count;
 }
 
-static void setBooleanField(JNIEnv* env, jobject obj, const char* path, jfieldID fieldID)
+static jboolean setBooleanField(JNIEnv* env, jobject obj, const char* path, jfieldID fieldID)
 {
     const int SIZE = 16;
     char buf[SIZE];
@@ -167,6 +167,7 @@ static void setBooleanField(JNIEnv* env, jobject obj, const char* path, jfieldID
         }
     }
     env->SetBooleanField(obj, fieldID, value);
+	return(value);
 }
 
 static void setIntField(JNIEnv* env, jobject obj, const char* path, jfieldID fieldID)
@@ -197,10 +198,21 @@ static void setVoltageField(JNIEnv* env, jobject obj, const char* path, jfieldID
 
 static void android_server_BatteryService_update(JNIEnv* env, jobject obj)
 {
+
+	// NJV 20110901 added from here
+	// If we get a failed reading (or battery shows as not present), DON'T
+	// set the other fields with bad values; instead return and let caller
+	// handle it.
+	jboolean bval = false;
+    bval = setBooleanField(env, obj, gPaths.batteryPresentPath, gFieldIds.mBatteryPresent);
+	if (bval == false)  {
+		LOGE("Battery NOT PRESENT in android_server_BatteryService_update!!");
+		return;
+	}
+	// NJV 20110901 added to here
+
     setBooleanField(env, obj, gPaths.acOnlinePath, gFieldIds.mAcOnline);
     setBooleanField(env, obj, gPaths.usbOnlinePath, gFieldIds.mUsbOnline);
-    setBooleanField(env, obj, gPaths.batteryPresentPath, gFieldIds.mBatteryPresent);
-    
     setIntField(env, obj, gPaths.batteryCapacityPath, gFieldIds.mBatteryLevel);
     setVoltageField(env, obj, gPaths.batteryVoltagePath, gFieldIds.mBatteryVoltage);
     setIntField(env, obj, gPaths.batteryTemperaturePath, gFieldIds.mBatteryTemperature);
@@ -231,6 +243,7 @@ int register_android_server_BatteryService(JNIEnv* env)
     char    path[PATH_MAX];
     struct dirent* entry;
 
+	int tempBatteryLevel = 0;
     DIR* dir = opendir(POWER_SUPPLY_PATH);
     if (dir == NULL) {
         LOGE("Could not open %s\n", POWER_SUPPLY_PATH);
@@ -330,6 +343,25 @@ int register_android_server_BatteryService(JNIEnv* env)
         return -1;
     }
     
+#if 0
+	// NJV - check to see if we got a valid reading
+	//		if not, log values we read 
+	tempBatteryLevel = env->GetFieldID(clazz, "mBatteryLevel", "I");
+	if (tempBatteryLevel == 0) {
+		// Got a dead battery, likely MCU not responding
+        LOGE("Battery Level is 0 !!");
+        LOGE("mAcOnline is " + env->GetFieldID(clazz, "mAcOnline", "Z"));
+        LOGE("mUsbOnLine is " + env->GetFieldID(clazz, "mUsbOnline", "Z"));
+        LOGE("mBatteryStatus is " + env->GetFieldID(clazz, "mBatteryStatus", "I"));
+        LOGE("mBatteryHealth is " + env->GetFieldID(clazz, "mBatteryHealth", "I"));
+        LOGE("mBatteryPresent is " + env->GetFieldID(clazz, "mBatteryPresent", "Z"));
+        LOGE("mBatteryVoltage is " + env->GetFieldID(clazz, "mBatteryVoltage", "I"));
+        LOGE("mBatteryTemperature is " + env->GetFieldID(clazz, "mBatteryTemperature", "I"));
+        LOGE("mBatteryTechnology is " + env->GetFieldID(clazz, "mBatteryTechnology", "Ljava/lang/String;"));
+        return -1;
+	}
+#endif
+
     gFieldIds.mAcOnline = env->GetFieldID(clazz, "mAcOnline", "Z");
     gFieldIds.mUsbOnline = env->GetFieldID(clazz, "mUsbOnline", "Z");
     gFieldIds.mBatteryStatus = env->GetFieldID(clazz, "mBatteryStatus", "I");

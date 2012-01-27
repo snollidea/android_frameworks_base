@@ -128,7 +128,8 @@ class MountService extends IMountService.Stub {
      * @param enable  true to enable USB mass storage support
      */
     public void setMassStorageEnabled(boolean enable) throws RemoteException {
-        mListener.setMassStorageEnabled(enable);
+	Log.d(TAG, "getMassStorageConnected ");
+    	   mListener.setMassStorageEnabled(enable);
     }
 
     /**
@@ -260,10 +261,12 @@ class MountService extends IMountService.Stub {
      */
     void notifyUmsConnected() {
         String storageState = Environment.getExternalStorageState();
+	Log.d(TAG, "notifyUMSConnected storageState = " + storageState);
         if (!storageState.equals(Environment.MEDIA_REMOVED) &&
             !storageState.equals(Environment.MEDIA_BAD_REMOVAL) &&
             !storageState.equals(Environment.MEDIA_CHECKING)) {
 
+	Log.d(TAG, "notifyUMSConnected mAutoStartUms = " + mAutoStartUms);
             if (mAutoStartUms) {
                 try {
                     setMassStorageEnabled(true);

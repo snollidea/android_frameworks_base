@@ -32,6 +32,11 @@ interface IPowerManager
     void preventScreenOn(boolean prevent);
     void setScreenBrightnessOverride(int brightness);
     boolean isScreenOn();
+    void reboot(String reason);
+    
+    // WIMM private
+    boolean isPluggedIn();
+    boolean isBatteryLow();
 
     // sets the brightness of the backlights (screen, keyboard, button) 0-255
     void setBacklightBrightness(int brightness);

@@ -85,7 +85,7 @@ class NotificationManagerService extends INotificationManager.Stub
     final IBinder mForegroundToken = new Binder();
 
     private WorkerHandler mHandler;
-    private StatusBarService mStatusBarService;
+    private StatusBarService mStatusBarService = null;
     private HardwareService mHardware;
 
     private NotificationRecord mSoundNotification;
@@ -394,7 +394,8 @@ class NotificationManagerService extends INotificationManager.Stub
         mToastQueue = new ArrayList<ToastRecord>();
         mHandler = new WorkerHandler();
         mStatusBarService = statusBar;
-        statusBar.setNotificationCallbacks(mNotificationCallbacks);
+        if ( statusBar != null ) 
+            statusBar.setNotificationCallbacks(mNotificationCallbacks);
 
         // Don't start allowing notifications until the setup wizard has run once.
         // After that, including subsequent boots, init with notifications turned on.
@@ -691,7 +692,8 @@ class NotificationManagerService extends INotificationManager.Stub
                     r.statusBarKey = old.statusBarKey;
                     long identity = Binder.clearCallingIdentity();
                     try {
-                        mStatusBarService.updateIcon(r.statusBarKey, icon, n);
+                        if ( mStatusBarService != null )
+                            mStatusBarService.updateIcon(r.statusBarKey, icon, n);
                     }
                     finally {
                         Binder.restoreCallingIdentity(identity);
@@ -699,7 +701,8 @@ class NotificationManagerService extends INotificationManager.Stub
                 } else {
                     long identity = Binder.clearCallingIdentity();
                     try {
-                        r.statusBarKey = mStatusBarService.addIcon(icon, n);
+                        if ( mStatusBarService != null )
+                            r.statusBarKey = mStatusBarService.addIcon(icon, n);
                         mHardware.pulseBreathingLight();
                     }
                     finally {
@@ -713,7 +716,8 @@ class NotificationManagerService extends INotificationManager.Stub
                 if (old != null && old.statusBarKey != null) {
                     long identity = Binder.clearCallingIdentity();
                     try {
-                        mStatusBarService.removeIcon(old.statusBarKey);
+                        if ( mStatusBarService != null )
+                            mStatusBarService.removeIcon(old.statusBarKey);
                     }
                     finally {
                         Binder.restoreCallingIdentity(identity);
@@ -821,7 +825,8 @@ class NotificationManagerService extends INotificationManager.Stub
         if (r.notification.icon != 0) {
             long identity = Binder.clearCallingIdentity();
             try {
-                mStatusBarService.removeIcon(r.statusBarKey);
+                if ( mStatusBarService != null )
+                    mStatusBarService.removeIcon(r.statusBarKey);
             }
             finally {
                 Binder.restoreCallingIdentity(identity);

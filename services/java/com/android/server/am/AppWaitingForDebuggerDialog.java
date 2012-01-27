@@ -20,7 +20,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Message;
 
-class AppWaitingForDebuggerDialog extends BaseErrorDialog {
+class AppWaitingForDebuggerDialog extends WimmErrorDialog {
     final ActivityManagerService mService;
     final ProcessRecord mProc;
     private CharSequence mAppName;
@@ -49,9 +49,9 @@ class AppWaitingForDebuggerDialog extends BaseErrorDialog {
         text.append(" is waiting for the debugger to attach.");
 
         setMessage(text.toString());
-        setButton("Force Close", mHandler.obtainMessage(1, app));
-        setTitle("Waiting For Debugger");
-        getWindow().setTitle("Waiting For Debugger: " + app.info.processName);
+        setButton("Quit", mHandler.obtainMessage(1, app));
+        setTitle("Debug");
+        getWindow().setTitle("Debug");
     }
     
     public void onStop() {

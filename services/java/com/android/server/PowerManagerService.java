@@ -17,6 +17,7 @@
 package com.android.server;
 
 import com.android.internal.app.IBatteryStats;
+import com.android.internal.app.ShutdownThread;
 import com.android.server.am.BatteryStatsService;
 
 import android.app.ActivityManagerNative;
@@ -88,7 +89,7 @@ class PowerManagerService extends IPowerManager.Stub
     private static final int SHORT_KEYLIGHT_DELAY_DEFAULT = 6000; // t+6 sec
     private static final int MEDIUM_KEYLIGHT_DELAY = 15000;       // t+15 sec
     private static final int LONG_KEYLIGHT_DELAY = 6000;        // t+6 sec
-    private static final int LONG_DIM_TIME = 7000;              // t+N-5 sec
+    private static final int LONG_DIM_TIME = 3000;              // t+N-3 sec
 
     // How long to wait to debounce light sensor changes.
     private static final int LIGHT_SENSOR_DELAY = 2000;
@@ -182,6 +183,7 @@ class PowerManagerService extends IPowerManager.Stub
     private final LockList mLocks = new LockList();
     private Intent mScreenOffIntent;
     private Intent mScreenOnIntent;
+    private Intent mScreenDimIntent;
     private HardwareService mHardware;
     private Context mContext;
     private UnsynchronizedWakeLock mBroadcastWakeLock;
@@ -240,8 +242,8 @@ class PowerManagerService extends IPowerManager.Stub
 
     // could be either static or controllable at runtime
     private static final boolean mSpew = false;
-    private static final boolean mDebugProximitySensor = (true || mSpew);
-    private static final boolean mDebugLightSensor = (false || mSpew);
+    private static final boolean mDebugProximitySensor = (false && mSpew);
+    private static final boolean mDebugLightSensor = (false && mSpew);
 
     /*
     static PrintStream mLog;
@@ -469,6 +471,8 @@ class PowerManagerService extends IPowerManager.Stub
         mScreenOnIntent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
         mScreenOffIntent = new Intent(Intent.ACTION_SCREEN_OFF);
         mScreenOffIntent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
+        mScreenDimIntent = new Intent(Intent.ACTION_SCREEN_DIM);
+        mScreenDimIntent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
 
         Resources resources = mContext.getResources();
 
@@ -735,6 +739,22 @@ class PowerManagerService extends IPowerManager.Stub
             if ((wl.flags & PowerManager.ON_AFTER_RELEASE) != 0) {
                 userActivity(SystemClock.uptimeMillis(), false);
             }
+            /* --- start WIMM dim notification --- 
+             * If someone holds a wake lock that does not have the ON_AFTER_RELEASE flag set
+             * and that wake lock is released after user activity has timed out, then we will
+             * not send out a SCREEN_DIM notification, and the device will enter passive mode
+             * before the watchface comes down.
+             * This work-around tickles the user activity timer if the ON_AFTER_RELEASE flag
+             * is NOT set so that we have time to send out the SCREEN_DIM notification.  
+             * However, we pass in an event time that is in the past so that we immediately
+             * go to our dim screen notification instead of waiting for user activity to 
+             * timeout.
+             */
+            else {
+                Log.w(TAG, "releaseWakeLockLocked~ force tickle user activity: state=" + (mWakeLockState | mUserState));
+                userActivity(SystemClock.uptimeMillis()-mKeylightDelay, false);
+            }
+            // --- end WIMM dim notification --- //
             setPowerState(mWakeLockState | mUserState);
         }
         else if ((wl.flags & LOCK_MASK) == PowerManager.PARTIAL_WAKE_LOCK) {
@@ -1055,9 +1075,11 @@ class PowerManagerService extends IPowerManager.Stub
         }
     }
 
-    private void sendNotificationLocked(boolean on, int why)
+    private void sendNotificationLocked(int state, int why)
     {
-        if (!on) {
+        if (mSpew) Log.d(TAG, "sendNotificationLocked state="+state+" why="+why);
+        
+        if (state == SCREEN_OFF) {
             mStillNeedSleepNotification = false;
         }
 
@@ -1066,9 +1088,12 @@ class PowerManagerService extends IPowerManager.Stub
         while (mBroadcastQueue[index] != -1) {
             index++;
         }
-        mBroadcastQueue[index] = on ? 1 : 0;
+        mBroadcastQueue[index] = state;
         mBroadcastWhy[index] = why;
 
+/* --- start WIMM dim notification --- 
+    COMMENTED OUT COALESCE AS WE'VE ADDED DIM NOTIFICATIONS TO THIS SYSTEM
+    
         // If we added it position 2, then there is a pair that can be stripped.
         // If we added it position 1 and we're turning the screen off, we can strip
         // the pair and do nothing, because the screen is already off, and therefore
@@ -1097,7 +1122,7 @@ class PowerManagerService extends IPowerManager.Stub
             EventLog.writeEvent(LOG_POWER_SCREEN_BROADCAST_STOP, 1, mBroadcastWakeLock.mCount);
             mBroadcastWakeLock.release();
         }
-
+    --- end WIMM dim notification --- */
         // Now send the message.
         if (index >= 0) {
             // Acquire the broadcast wake lock before changing the power
@@ -1127,7 +1152,29 @@ class PowerManagerService extends IPowerManager.Stub
                     }
                     policy = getPolicyLocked();
                 }
-                if (value == 1) {
+                
+                // --- start WIMM dim notification --- //
+                if (value == SCREEN_DIM) {
+                    if (mSpew) Log.d(TAG, "post SCREEN_DIM");
+                    mScreenDimStart = SystemClock.uptimeMillis();
+                    
+                    if (mSpew) {
+                        Log.d(TAG, "mBroadcastWakeLock=" + mBroadcastWakeLock);
+                    }
+                    if (mContext != null && ActivityManagerNative.isSystemReady()) {
+                        mContext.sendOrderedBroadcast(mScreenDimIntent, null,
+                                mScreenDimBroadcastDone, mHandler, 0, null, null);
+                    } else {
+                        synchronized (mLocks) {
+                            EventLog.writeEvent(LOG_POWER_SCREEN_BROADCAST_STOP, 4,
+                                    mBroadcastWakeLock.mCount);
+                            mBroadcastWakeLock.release();
+                        }
+                    }
+                }
+                // --- end WIMM dim notification --- //
+                else if (value == SCREEN_BRIGHT) {
+                    if (mSpew) Log.d(TAG, "post SCREEN_BRIGHT");
                     mScreenOnStart = SystemClock.uptimeMillis();
                     
                     policy.screenTurnedOn();
@@ -1151,7 +1198,8 @@ class PowerManagerService extends IPowerManager.Stub
                         }
                     }
                 }
-                else if (value == 0) {
+                else if (value == SCREEN_OFF) {
+                    if (mSpew) Log.d(TAG, "post SCREEN_OFF");
                     mScreenOffStart = SystemClock.uptimeMillis();
                     
                     policy.screenTurnedOff(why);
@@ -1181,9 +1229,28 @@ class PowerManagerService extends IPowerManager.Stub
         }
     };
 
+    // --- start WIMM dim notification --- //
+    long mScreenDimStart;
+    private BroadcastReceiver mScreenDimBroadcastDone = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            if (mSpew) Log.d(TAG, "ScreenDimBroadcastDone");
+            
+            // ensure that watchface has enough time to come down after we post a DIM intent
+            setTimeoutLocked(SystemClock.uptimeMillis(), SCREEN_OFF);
+            
+            synchronized (mLocks) {
+                EventLog.writeEvent(LOG_POWER_SCREEN_BROADCAST_DONE, 2,
+                        SystemClock.uptimeMillis() - mScreenDimStart, mBroadcastWakeLock.mCount);
+                mBroadcastWakeLock.release();
+            }
+        }
+    };
+    // --- end WIMM dim notification --- //
+
     long mScreenOnStart;
     private BroadcastReceiver mScreenOnBroadcastDone = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
+            if (mSpew) Log.d(TAG, "ScreenOnBroadcastDone");
             synchronized (mLocks) {
                 EventLog.writeEvent(LOG_POWER_SCREEN_BROADCAST_DONE, 1,
                         SystemClock.uptimeMillis() - mScreenOnStart, mBroadcastWakeLock.mCount);
@@ -1195,6 +1262,7 @@ class PowerManagerService extends IPowerManager.Stub
     long mScreenOffStart;
     private BroadcastReceiver mScreenOffBroadcastDone = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
+            if (mSpew) Log.d(TAG, "ScreenOffBroadcastDone");
             synchronized (mLocks) {
                 EventLog.writeEvent(LOG_POWER_SCREEN_BROADCAST_DONE, 0,
                         SystemClock.uptimeMillis() - mScreenOffStart, mBroadcastWakeLock.mCount);
@@ -1406,14 +1474,17 @@ class PowerManagerService extends IPowerManager.Stub
 
             boolean oldScreenOn = (mPowerState & SCREEN_ON_BIT) != 0;
             boolean newScreenOn = (newState & SCREEN_ON_BIT) != 0;
+            
+            boolean oldScreenBright = (mPowerState & SCREEN_BRIGHT_BIT) != 0;
+            boolean newScreenBright = (newState & SCREEN_BRIGHT_BIT) != 0;
 
             if (mSpew) {
                 Log.d(TAG, "setPowerState: mPowerState=" + mPowerState
                         + " newState=" + newState + " noChangeLights=" + noChangeLights);
                 Log.d(TAG, "  oldKeyboardBright=" + ((mPowerState & KEYBOARD_BRIGHT_BIT) != 0)
                          + " newKeyboardBright=" + ((newState & KEYBOARD_BRIGHT_BIT) != 0));
-                Log.d(TAG, "  oldScreenBright=" + ((mPowerState & SCREEN_BRIGHT_BIT) != 0)
-                         + " newScreenBright=" + ((newState & SCREEN_BRIGHT_BIT) != 0));
+                Log.d(TAG, "  oldScreenBright=" + oldScreenBright
+                         + " newScreenBright=" + newScreenBright);
                 Log.d(TAG, "  oldButtonBright=" + ((mPowerState & BUTTON_BRIGHT_BIT) != 0)
                          + " newButtonBright=" + ((newState & BUTTON_BRIGHT_BIT) != 0));
                 Log.d(TAG, "  oldScreenOn=" + oldScreenOn
@@ -1434,7 +1505,7 @@ class PowerManagerService extends IPowerManager.Stub
                     // we can't do that until the screen fades out, so we don't show the keyguard
                     // too early.
                     if (mStillNeedSleepNotification) {
-                        sendNotificationLocked(false, WindowManagerPolicy.OFF_BECAUSE_OF_USER);
+                        sendNotificationLocked(SCREEN_OFF, WindowManagerPolicy.OFF_BECAUSE_OF_USER);
                     }
 
                     // Turn on the screen UNLESS there was a prior
@@ -1480,7 +1551,7 @@ class PowerManagerService extends IPowerManager.Stub
                             mTotalTouchDownTime, mTouchCycles);
                     if (err == 0) {
                         mPowerState |= SCREEN_ON_BIT;
-                        sendNotificationLocked(true, -1);
+                        sendNotificationLocked(SCREEN_BRIGHT, -1);
                     }
                 } else {
                     // cancel light sensor task
@@ -1503,6 +1574,12 @@ class PowerManagerService extends IPowerManager.Stub
                         mLastTouchDown = 0;
                     }
                 }
+    // --- start WIMM dim notification --- //
+            } else if ( oldScreenBright != newScreenBright ) {
+                if ( newScreenBright )
+                    sendNotificationLocked(SCREEN_BRIGHT,-1);
+                else sendNotificationLocked(SCREEN_DIM,-1);
+    // --- end WIMM dim notification --- //
             }
         }
     }
@@ -1520,7 +1597,7 @@ class PowerManagerService extends IPowerManager.Stub
         }
         if (err == 0) {
             mScreenOffReason = reason;
-            sendNotificationLocked(false, reason);
+            sendNotificationLocked(SCREEN_OFF, reason);
         }
         return err;
     }
@@ -1528,6 +1605,16 @@ class PowerManagerService extends IPowerManager.Stub
     private boolean batteryIsLow() {
         return (!mIsPowered &&
                 mBatteryService.getBatteryLevel() <= Power.LOW_BATTERY_THRESHOLD);
+    }
+    
+    // WIMM private
+    public boolean isPluggedIn() {
+        return mIsPowered;
+    }
+    
+    // WIMM private
+    public boolean isBatteryLow() {
+        return batteryIsLow();
     }
 
     private void updateLightsLocked(int newState, int forceState) {
@@ -1917,6 +2004,8 @@ class PowerManagerService extends IPowerManager.Stub
                         + " mUserState=0x" + Integer.toHexString(mUserState)
                         + " mWakeLockState=0x" + Integer.toHexString(mWakeLockState)
                         + " mProximitySensorActive=" + mProximitySensorActive
+                        + " noChangeLights=" + noChangeLights
+                        + " eventType=" + eventType
                         + " force=" + force);
             }
             // ignore user activity if we are in the process of turning off the screen
@@ -2086,8 +2175,44 @@ class PowerManagerService extends IPowerManager.Stub
     public void goToSleep(long time)
     {
         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.DEVICE_POWER, null);
+
         synchronized (mLocks) {
             goToSleepLocked(time, WindowManagerPolicy.OFF_BECAUSE_OF_USER);
+        }
+    }
+
+    /**
+     * Reboot the device immediately, passing 'reason' (may be null)
+     * to the underlying __reboot system call.  Should not return.
+     */
+    public void reboot(String reason)
+    {
+        mContext.enforceCallingOrSelfPermission(android.Manifest.permission.REBOOT, null);
+
+        if (mHandler == null || !ActivityManagerNative.isSystemReady()) {
+            throw new IllegalStateException("Too early to call reboot()");
+        }
+
+        final String finalReason = reason;
+        Runnable runnable = new Runnable() {
+            public void run() {
+                synchronized (this) {
+                    ShutdownThread.reboot(mContext, finalReason, false);
+                }
+                
+            }
+        };
+        // ShutdownThread must run on a looper capable of displaying the UI.
+        mHandler.post(runnable);
+
+        // PowerManager.reboot() is documented not to return so just wait for the inevitable.
+        synchronized (runnable) {
+            while (true) {
+                try {
+                    runnable.wait();
+                } catch (InterruptedException e) {
+                }
+            }
         }
     }
     
@@ -2392,8 +2517,10 @@ class PowerManagerService extends IPowerManager.Stub
 
     public void setBacklightBrightness(int brightness) {
         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.DEVICE_POWER, null);
+
         // Don't let applications turn the screen all the way off
         brightness = Math.max(brightness, Power.BRIGHTNESS_DIM);
+
         mHardware.setLightBrightness_UNCHECKED(HardwareService.LIGHT_ID_BACKLIGHT, brightness,
                 HardwareService.BRIGHTNESS_MODE_USER);
         mHardware.setLightBrightness_UNCHECKED(HardwareService.LIGHT_ID_KEYBOARD,

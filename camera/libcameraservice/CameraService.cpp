@@ -32,6 +32,9 @@
 #include <media/AudioSystem.h>
 #include "CameraService.h"
 
+#ifdef SLSI_S5P6442
+#include <hardware_legacy/power.h>
+ #endif /*SLSI_S5P6442 */
 #include <cutils/atomic.h>
 
 namespace android {
@@ -56,14 +59,20 @@ extern "C" {
 
 #define PICTURE_TIMEOUT seconds(5)
 
-#define DEBUG_DUMP_PREVIEW_FRAME_TO_FILE 0 /* n-th frame to write */
+#define DEBUG_DUMP_PREVIEW_FRAME_TO_FILE 32 /* n-th frame to write */
 #define DEBUG_DUMP_JPEG_SNAPSHOT_TO_FILE 0
 #define DEBUG_DUMP_YUV_SNAPSHOT_TO_FILE 0
-#define DEBUG_DUMP_POSTVIEW_SNAPSHOT_TO_FILE 0
+#define DEBUG_DUMP_POSTVIEW_SNAPSHOT_TO_FILE 32
 
 #if DEBUG_DUMP_PREVIEW_FRAME_TO_FILE
 static int debug_frame_cnt;
 #endif
+
+#ifdef SLSI_S5P6442
+//#include "gralloc_priv.h"
+#define PRIV_FLAGS_CAMERA_PREVIEW 0x00000008
+#define PRIV_FLAGS_CAMERA_PICTURE 0x00000010
+#endif /* SLSI_S5P6442 */
 
 static int getCallingPid() {
     return IPCThreadState::self()->getCallingPid();
@@ -95,6 +104,12 @@ CameraService::~CameraService()
 sp<ICamera> CameraService::connect(const sp<ICameraClient>& cameraClient)
 {
     int callingPid = getCallingPid();
+
+#ifdef SLSI_S5P6442
+    // change cpufreq mode to performance
+    set_cpufreq_state(0);
+#endif /*SLSI_S5P6442 */
+
     LOGD("CameraService::connect E (pid %d, client %p)", callingPid,
             cameraClient->asBinder().get());
 
@@ -599,6 +614,9 @@ status_t CameraService::Client::setOverlay()
 status_t CameraService::Client::registerPreviewBuffers()
 {
     int w, h;
+#ifdef SLSI_S5P6442
+    int preview_fmt;
+#endif
     CameraParameters params(mHardware->getParameters());
     params.getPreviewSize(&w, &h);
 
@@ -608,11 +626,45 @@ status_t CameraService::Client::registerPreviewBuffers()
       LOGV("portrait mode");
       transform = ISurface::BufferHeap::ROT_90;
     }
+#ifdef SLSI_S5P6442
+    const char *preview_format = params.getPreviewFormat();
+    preview_fmt = PIXEL_FORMAT_YCbCr_420_SP;
+
+	if (strcmp(preview_format, "yuv420sp") == 0)
+	preview_fmt = PIXEL_FORMAT_YCbCr_420_SP;
+    else if (strcmp(preview_format, "yuv420p") == 0)
+	preview_fmt = PIXEL_FORMAT_YCbCr_420_P;
+    else if (strcmp(preview_format, "yuv422p") == 0)
+        preview_fmt = PIXEL_FORMAT_YCbCr_420_P;
+    else if (strcmp(preview_format, "yuv422sp") == 0)
+        preview_fmt = PIXEL_FORMAT_YCbCr_420_SP;
+    else if (strcmp(preview_format, "yuv420i") == 0)
+        preview_fmt = PIXEL_FORMAT_YCbCr_420_P;
+    else if (strcmp(preview_format, "yuv422i-yuyv") == 0)
+        preview_fmt = PIXEL_FORMAT_YCbCr_422_I;
+    else if (strcmp(preview_format, "rgb565") == 0)
+        preview_fmt = PIXEL_FORMAT_RGB_565;
+    else
+	{
+         preview_fmt = PIXEL_FORMAT_UNKNOWN;
+		
+	    LOGE("Invalid preview format for real preview");
+	    return -EINVAL;
+	}
+
+
+    ISurface::BufferHeap buffers(w, h, w, h,
+                                 preview_fmt,
+                                 transform,
+                                 PRIV_FLAGS_CAMERA_PREVIEW,
+                                 mHardware->getPreviewHeap());
+#else /* SLSI_S5P6442 */
     ISurface::BufferHeap buffers(w, h, w, h,
                                  PIXEL_FORMAT_YCbCr_420_SP,
                                  transform,
                                  0,
                                  mHardware->getPreviewHeap());
+#endif /*SLSI_S5P6442 */
 
     status_t ret = mSurface->registerBuffers(buffers);
     if (ret != NO_ERROR) {
@@ -935,8 +987,34 @@ void CameraService::Client::handleShutter(
             h &= ~1;
             LOGD("Snapshot image width=%d, height=%d", w, h);
         }
+#ifdef SLSI_S5P6442
+		const char * picture_format = params.getPictureFormat();
+		int fmt;
+
+		if (   strcmp(picture_format, "yuv422i-yuyv") == 0
+			|| strcmp(picture_format, "jpeg")         == 0)
+			fmt = PIXEL_FORMAT_YCbCr_422_I;
+		else if (strcmp(picture_format, "yuv420p") == 0)
+			fmt = PIXEL_FORMAT_YCbCr_420_P;
+		else if (strcmp(picture_format, "yuv422p") == 0)
+			fmt = PIXEL_FORMAT_YCbCr_420_P;
+		else if (strcmp(picture_format, "yuv420sp") == 0)
+			fmt = PIXEL_FORMAT_YCbCr_420_SP;
+		else if (strcmp(picture_format, "yuv422sp") == 0)
+			fmt = PIXEL_FORMAT_YCbCr_420_SP;
+		else if (strcmp(picture_format, "yuv420i") == 0)
+			fmt = PIXEL_FORMAT_YCbCr_420_P;
+		else if (strcmp(picture_format, "rgb565") == 0)
+			fmt = PIXEL_FORMAT_RGB_565;
+		else
+			fmt = PIXEL_FORMAT_YCbCr_422_I;
+
+        ISurface::BufferHeap buffers(w, h, w, h,
+            fmt, transform, PRIV_FLAGS_CAMERA_PICTURE, mHardware->getRawHeap());
+#else /* SLSI_S5P6442 */
         ISurface::BufferHeap buffers(w, h, w, h,
             PIXEL_FORMAT_YCbCr_420_SP, transform, 0, mHardware->getRawHeap());
+#endif /*SLSI_S5P6442 */
 
         mSurface->registerBuffers(buffers);
     }

@@ -25,7 +25,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
-class AppErrorDialog extends BaseErrorDialog {
+class AppErrorDialog extends WimmErrorDialog {
     private final static String TAG = "AppErrorDialog";
 
     private final AppErrorResult mResult;
@@ -52,19 +52,19 @@ class AppErrorDialog extends BaseErrorDialog {
         if ((app.pkgList.size() == 1) &&
                 (name=context.getPackageManager().getApplicationLabel(app.info)) != null) {
             setMessage(res.getString(
-                    com.android.internal.R.string.aerr_application,
+                    com.android.internal.R.string.wimm_aerr_application,
                     name.toString(), app.info.processName));
         } else {
             name = app.processName;
             setMessage(res.getString(
-                    com.android.internal.R.string.aerr_process,
+                    com.android.internal.R.string.wimm_aerr_process,
                     name.toString()));
         }
 
         setCancelable(false);
 
         setButton(DialogInterface.BUTTON_POSITIVE,
-                res.getText(com.android.internal.R.string.force_close),
+                res.getText(com.android.internal.R.string.wimm_force_close),
                 mHandler.obtainMessage(FORCE_QUIT));
 
         if ((flags&1) != 0) {
@@ -79,7 +79,7 @@ class AppErrorDialog extends BaseErrorDialog {
                     mHandler.obtainMessage(FORCE_QUIT_AND_REPORT));
         }
 
-        setTitle(res.getText(com.android.internal.R.string.aerr_title));
+        setTitle(res.getText(com.android.internal.R.string.wimm_aerr_title));
         getWindow().addFlags(FLAG_SYSTEM_ERROR);
         getWindow().setTitle("Application Error: " + app.info.processName);
 

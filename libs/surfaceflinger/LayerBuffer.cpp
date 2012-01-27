@@ -277,12 +277,20 @@ LayerBuffer::Buffer::Buffer(const ISurface::BufferHeap& buffers, ssize_t offset)
 
     gralloc_module_t const * module = LayerBuffer::getGrallocModule();
     if (module && module->perform) {
+#ifdef SLSI_S5P6442
+        int err = module->perform(module,
+                GRALLOC_MODULE_PERFORM_CREATE_HANDLE_FROM_BUFFER,
+                buffers.heap->heapID(), buffers.heap->getSize(),
+                offset, buffers.heap->base(),
+                &src.img.handle,
+                buffers.flags);
+#else
         int err = module->perform(module,
                 GRALLOC_MODULE_PERFORM_CREATE_HANDLE_FROM_BUFFER,
                 buffers.heap->heapID(), buffers.heap->getSize(),
                 offset, buffers.heap->base(),
                 &src.img.handle);
-
+#endif /* SLSI_S5P6442 */
         LOGE_IF(err, "CREATE_HANDLE_FROM_BUFFER (heapId=%d, size=%d, "
              "offset=%ld, base=%p) failed (%s)",
                 buffers.heap->heapID(), buffers.heap->getSize(),
@@ -364,6 +372,36 @@ LayerBuffer::BufferSource::BufferSource(LayerBuffer& layer,
         return;
     }
 
+#ifndef SLSI_S5P6442 
+    if (mLayer.mBlitEngine) {
+        // create our temporary buffer and corresponding EGLImageKHR.
+        // note that the size of this buffer doesn't really matter,
+        // the final image will always be drawn with proper aspect ratio.
+
+        int w = buffers.w;
+        int h = buffers.h;
+        mTempGraphicBuffer.clear();
+        mTempGraphicBuffer = new GraphicBuffer(
+                w, h, HAL_PIXEL_FORMAT_RGBX_8888,
+                GraphicBuffer::USAGE_HW_TEXTURE |
+                GraphicBuffer::USAGE_HW_2D);
+
+        if (mTempGraphicBuffer->initCheck() == NO_ERROR) {
+            NativeBuffer& dst(mTempBuffer);
+            dst.img.w = mTempGraphicBuffer->getStride();
+            dst.img.h = mTempGraphicBuffer->getHeight();
+            dst.img.format = mTempGraphicBuffer->getPixelFormat();
+            dst.img.handle = (native_handle_t *)mTempGraphicBuffer->handle;
+            dst.img.base = 0;
+            dst.crop.l = 0;
+            dst.crop.t = 0;
+            dst.crop.r = mTempGraphicBuffer->getWidth();
+            dst.crop.b = mTempGraphicBuffer->getHeight();
+        } else {
+            mTempGraphicBuffer.clear();
+        }
+    }
+#endif
     mBufferHeap = buffers;
     mLayer.setNeedsBlending((info.h_alpha - info.l_alpha) > 0);    
     mBufferSize = info.getScanlineSize(buffers.hor_stride)*buffers.ver_stride;
@@ -446,6 +484,141 @@ void LayerBuffer::BufferSource::onDraw(const Region& clip) const
     NativeBuffer src(ourBuffer->getBuffer());
     const Rect transformedBounds(mLayer.getTransformedBounds());
 
+#ifdef SLSI_S5P6442
+    copybit_device_t* copybit = mLayer.mBlitEngine;
+
+    if (copybit)  {
+        const int src_width  = src.crop.r - src.crop.l;
+        const int src_height = src.crop.b - src.crop.t;
+        int W = transformedBounds.width();
+        int H = transformedBounds.height();
+        if (mLayer.getOrientation() & Transform::ROT_90) {
+            int t(W); W=H; H=t;
+        }
+
+#ifdef EGL_ANDROID_get_render_buffer
+        EGLDisplay dpy = eglGetCurrentDisplay();
+        EGLSurface draw = eglGetCurrentSurface(EGL_DRAW); 
+        EGLClientBuffer clientBuf = eglGetRenderBufferANDROID(dpy, draw);
+        android_native_buffer_t* nb = (android_native_buffer_t*)clientBuf;
+        if (nb == 0) {
+            err = BAD_VALUE;
+        } else {
+            copybit_image_t dst;
+            dst.w       = nb->width;
+            dst.h       = nb->height;
+            dst.format  = nb->format;
+            dst.base    = NULL; // unused by copybit on msm7k
+            dst.handle  = (native_handle_t *)nb->handle;
+
+            /* With LayerBuffer, it is likely that we'll have to rescale the
+             * surface, because this is often used for video playback or
+             * camera-preview. Since we want these operation as fast as possible
+             * we make sure we can use the 2D H/W even if it doesn't support
+             * the requested scale factor, in which case we perform the scaling
+             * in several passes. */
+
+            const float min = copybit->get(copybit, COPYBIT_MINIFICATION_LIMIT);
+            const float mag = copybit->get(copybit, COPYBIT_MAGNIFICATION_LIMIT);
+
+            float xscale = 1.0f;
+            if (src_width > W*min)          xscale = 1.0f / min;
+            else if (src_width*mag < W)     xscale = mag;
+
+            float yscale = 1.0f;
+            if (src_height > H*min)         yscale = 1.0f / min;
+            else if (src_height*mag < H)    yscale = mag;
+
+            if (UNLIKELY(xscale!=1.0f || yscale!=1.0f)) {
+                const int tmp_w = floorf(src_width  * xscale);
+                const int tmp_h = floorf(src_height * yscale);
+                
+                if (mTempGraphicBuffer==0 || 
+                    mTempGraphicBuffer->getWidth() < size_t(tmp_w) || 
+                    mTempGraphicBuffer->getHeight() < size_t(tmp_h)) {
+                    mTempGraphicBuffer.clear();
+                    mTempGraphicBuffer = new android::GraphicBuffer(
+                            tmp_w, tmp_h, src.img.format,
+                            GraphicBuffer::USAGE_HW_2D);
+                    err = mTempGraphicBuffer->initCheck();
+                }
+
+                if (LIKELY(err == NO_ERROR)) {
+                    NativeBuffer tmp;
+                    tmp.img.w = tmp_w;
+                    tmp.img.h = tmp_h;
+                    tmp.img.format = src.img.format;
+                    tmp.img.handle = (native_handle_t*)mTempGraphicBuffer->getNativeBuffer()->handle;
+                    tmp.crop.l = 0;
+                    tmp.crop.t = 0;
+                    tmp.crop.r = tmp.img.w;
+                    tmp.crop.b = tmp.img.h;
+
+                    region_iterator tmp_it(Region(Rect(tmp.crop.r, tmp.crop.b)));
+                    copybit->set_parameter(copybit, COPYBIT_TRANSFORM, 0);
+                    copybit->set_parameter(copybit, COPYBIT_PLANE_ALPHA, 0xFF);
+                    copybit->set_parameter(copybit, COPYBIT_DITHER, COPYBIT_DISABLE);
+                    err = copybit->stretch(copybit,
+                            &tmp.img, &src.img, &tmp.crop, &src.crop, &tmp_it);
+                    src = tmp;
+                }
+            }
+
+            const Rect transformedBounds(mLayer.getTransformedBounds());
+            const copybit_rect_t& drect =
+                reinterpret_cast<const copybit_rect_t&>(transformedBounds);
+            const State& s(mLayer.drawingState());
+            region_iterator it(clip);
+
+            // pick the right orientation for this buffer
+            int orientation = mLayer.getOrientation();
+            if (UNLIKELY(mBufferHeap.transform)) {
+                Transform rot90;
+                GraphicPlane::orientationToTransfrom(
+                        ISurfaceComposer::eOrientation90, 0, 0, &rot90);
+                const Transform& planeTransform(mLayer.graphicPlane(0).transform());
+                const Layer::State& s(mLayer.drawingState());
+                Transform tr(planeTransform * s.transform * rot90);
+                orientation = tr.getOrientation();
+            }
+
+            copybit->set_parameter(copybit, COPYBIT_TRANSFORM, orientation);
+            copybit->set_parameter(copybit, COPYBIT_PLANE_ALPHA, s.alpha);
+            copybit->set_parameter(copybit, COPYBIT_DITHER, COPYBIT_ENABLE);
+
+            err = copybit->stretch(copybit,
+                    &dst, &src.img, &drect, &src.crop, &it);
+            if (err != NO_ERROR) {
+                LOGE("copybit failed (%s)", strerror(err));
+            }
+        }
+    }
+#endif    // ~ end of EGL_ANDROID_get_render_buffer
+    
+    if (!copybit || err) 
+    {
+        // OpenGL fall-back
+        if (UNLIKELY(mTexture.name == -1LU)) {
+            mTexture.name = mLayer.createTexture();
+        }
+        GLuint w = 0;
+        GLuint h = 0;
+        GGLSurface t;
+        t.version = sizeof(GGLSurface);
+        t.width  = src.crop.r;
+        t.height = src.crop.b;
+        t.stride = src.img.w;
+        t.vstride= src.img.h;
+        t.format = src.img.format;
+        t.data = (GGLubyte*)src.img.base;
+        const Region dirty(Rect(t.width, t.height));
+        mLayer.loadTexture(&mTexture, dirty, t);
+
+        mTexture.transform = mBufferHeap.transform;
+        mLayer.drawWithOpenGL(clip, mTexture);
+    }
+#else
+
     if (UNLIKELY(mTexture.name == -1LU)) {
         mTexture.name = mLayer.createTexture();
     }
@@ -492,6 +665,7 @@ void LayerBuffer::BufferSource::onDraw(const Region& clip) const
 
     mTexture.transform = mBufferHeap.transform;
     mLayer.drawWithOpenGL(clip, mTexture);
+#endif    // SLSI_S5P6442
 }
 
 status_t LayerBuffer::BufferSource::initTempBuffer() const

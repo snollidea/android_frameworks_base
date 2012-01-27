@@ -58,10 +58,20 @@ Layer::Layer(SurfaceFlinger* flinger, DisplayID display,
     // no OpenGL operation is possible here, since we might not be
     // in the OpenGL thread.
     mFrontBufferIndex = lcblk->getFrontBuffer();
+#ifdef SLSI_S5P6442
+    hw_module_t const* module;
+    mBlitEngine = NULL;
+    if (hw_get_module(COPYBIT_HARDWARE_MODULE_ID, &module) == 0) {
+        copybit_open(module, &mBlitEngine);
+    }
+#endif /* SLSI_S3C6410 */
 }
 
 Layer::~Layer()
 {
+#ifdef SLSI_S5P6442
+    if (mBlitEngine) copybit_close(mBlitEngine);
+#endif /* SLSI_S3C6410 */
     destroy();
     // the actual buffers will be destroyed here
 }
@@ -235,6 +245,7 @@ void Layer::reloadTexture(const Region& dirty)
     } else
 #endif
     {
+#ifndef SLSI_S5P6442
         for (size_t i=0 ; i<NUM_BUFFERS ; i++) {
             mTextures[i].image = EGL_NO_IMAGE_KHR;
         }
@@ -246,9 +257,85 @@ void Layer::reloadTexture(const Region& dirty)
             loadTexture(&mTextures[0], dirty, t);
             buffer->unlock();
         }
+#endif
     }
 }
 
+#ifdef SLSI_S5P6442
+void Layer::onDraw(const Region& clip) const
+{
+    int index = mFrontBufferIndex;
+    if (mTextures[index].image == EGL_NO_IMAGE_KHR)
+        index = 0;
+    status_t err = NO_ERROR;
+    copybit_device_t* copybit = mBlitEngine;
+    GLuint textureName = mTextures[index].name;
+//	copybit=NULL;
+
+    if (UNLIKELY(textureName == -1LU)) {
+      // if (!copybit)  {
+            // the texture has not been created yet, this Layer has
+            // in fact never been drawn into. this happens frequently with
+            // SurfaceView.
+            clearWithOpenGL(clip);
+      //  }
+        return;
+    }
+
+    if (copybit)  {
+        // StopWatch watch("copybit");
+        const State& s(drawingState());
+        sp<GraphicBuffer> buffer(mBuffers[mFrontBufferIndex]);
+
+        GGLSurface t;
+        status_t res = buffer->lock(&t, GRALLOC_USAGE_SW_READ_OFTEN);
+        if(res)
+            LOGE("error %d (%s) locking buffer %p", res, strerror(res), buffer.get());
+
+        EGLDisplay dpy = eglGetCurrentDisplay();
+        EGLSurface draw = eglGetCurrentSurface(EGL_DRAW); 
+        EGLClientBuffer clientBuf = eglGetRenderBufferANDROID(dpy, draw);
+        android_native_buffer_t* nb = (android_native_buffer_t*)clientBuf;
+
+        copybit_image_t dst;
+        dst.w 		= nb->width;
+        dst.h 		= nb->height;
+        dst.format 	= nb->format;
+        dst.base 	= NULL;
+        dst.handle 	= (native_handle_t*) nb->handle;
+        // LOGE("w=%d h=%d f=%d b=%d handle=%d",dst.w,dst.h,dst.format,dst.base,dst.handle);
+
+        const copybit_rect_t& drect
+            = reinterpret_cast<const copybit_rect_t&>(mTransformedBounds);
+
+        copybit_image_t src;
+
+        src.w 		= t.width;
+        src.h 		= t.height;
+        src.format 	= t.format;
+        src.base 	= t.data;
+        src.handle 	= (native_handle_t*) buffer->handle;
+        // LOGE("w=%d h=%d f=%d b=%d handle=%d",src.w,src.h,src.format,src.base,src.handle);
+
+        copybit_rect_t srect = { 0, 0, t.width, t.height };
+
+        copybit->set_parameter(copybit, COPYBIT_TRANSFORM, getOrientation());
+        copybit->set_parameter(copybit, COPYBIT_PLANE_ALPHA, s.alpha);
+        copybit->set_parameter(copybit, COPYBIT_DITHER,
+                s.flags & ISurfaceComposer::eLayerDither ?
+                        COPYBIT_ENABLE : COPYBIT_DISABLE);
+
+        region_iterator it(clip);
+        err = copybit->stretch(copybit, &dst, &src, &drect, &srect, &it);
+        buffer->unlock();
+    }
+
+    if (!copybit || err) {
+        //LOGE("copybit err : drawWithOpenGL");
+        drawWithOpenGL(clip, mTextures[index]);
+    }
+}
+#else /* SLSI_S5P6442 */
 void Layer::onDraw(const Region& clip) const
 {
     int index = mFrontBufferIndex;
@@ -264,6 +351,7 @@ void Layer::onDraw(const Region& clip) const
     }
     drawWithOpenGL(clip, mTextures[index]);
 }
+#endif /* SLSI_S5P6442 */
 
 sp<GraphicBuffer> Layer::requestBuffer(int index, int usage)
 {

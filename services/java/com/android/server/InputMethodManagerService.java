@@ -473,9 +473,14 @@ public class InputMethodManagerService extends IInputMethodManager.Stub
         }
         
         mStatusBar = statusBar;
-        mInputMethodData = IconData.makeIcon("ime", null, 0, 0, 0);
-        mInputMethodIcon = statusBar.addIcon(mInputMethodData, null);
-        statusBar.setIconVisibility(mInputMethodIcon, false);
+        if ( statusBar != null ) {
+            mInputMethodData = IconData.makeIcon("ime", null, 0, 0, 0);
+            mInputMethodIcon = statusBar.addIcon(mInputMethodData, null);
+            statusBar.setIconVisibility(mInputMethodIcon, false);
+        } else {
+            mInputMethodData = null;
+            mInputMethodIcon = null;
+        }
         
         mSettingsObserver = new SettingsObserver(mHandler);
         updateFromSettingsLocked();
@@ -863,7 +868,8 @@ public class InputMethodManagerService extends IInputMethodManager.Stub
             }
             mCurMethod = null;
         }
-        mStatusBar.setIconVisibility(mInputMethodIcon, false);
+        if ( mStatusBar != null )
+            mStatusBar.setIconVisibility(mInputMethodIcon, false);
     }
     
     public void onServiceDisconnected(ComponentName name) {
@@ -887,6 +893,8 @@ public class InputMethodManagerService extends IInputMethodManager.Stub
     }
 
     public void updateStatusIcon(IBinder token, String packageName, int iconId) {
+        if ( mStatusBar == null ) return;
+        
         long ident = Binder.clearCallingIdentity();
         try {
             if (token == null || mCurToken != token) {

@@ -419,6 +419,40 @@ public class PowerManager
         }
     }
 
+    /**
+     * Is the device plugged into external power.
+     *
+     * @return true if charging or using AC or USB power.
+     * 
+     * WIMM
+     * {@hide}
+     */
+    public boolean isPluggedIn()
+    {
+        try {
+            return mService.isPluggedIn();
+        } catch (RemoteException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Is the battery running low.
+     *
+     * @return true if not plugged in and battery level <= Power.LOW_BATTERY_THRESHOLD.
+     * 
+     * WIMM
+     * {@hide}
+     */
+    public boolean isBatteryLow()
+    {
+        try {
+            return mService.isBatteryLow();
+        } catch (RemoteException e) {
+            return false;
+        }
+    }
+
    /**
      * Returns the set of flags for {@link #newWakeLock(int, String) newWakeLock()}
      * that are supported on the device.
@@ -462,6 +496,24 @@ public class PowerManager
             return mService.isScreenOn();
         } catch (RemoteException e) {
             return false;
+        }
+    }
+
+    /**
+     * Reboot the device.  Will not return if the reboot is
+     * successful.  Requires the {@link android.Manifest.permission#REBOOT}
+     * permission.
+     *
+     * @param reason code to pass to the kernel (e.g., "recovery") to
+     *               request special boot modes, or null.
+     *
+     * {@hide}
+     */
+    public void reboot(String reason)
+    {
+        try {
+            mService.reboot(reason);
+        } catch (RemoteException e) {
         }
     }
 
