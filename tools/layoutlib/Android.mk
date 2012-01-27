@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+ifeq ($(TARGET_WIMM),)
+
 LOCAL_PATH := $(my-dir)
 include $(CLEAR_VARS)
 
@@ -65,3 +67,5 @@ $(LOCAL_BUILT_MODULE): $(built_core_dep) \
 # Include the subdir makefiles.
 #
 include $(call all-makefiles-under,$(LOCAL_PATH))
+
+endif

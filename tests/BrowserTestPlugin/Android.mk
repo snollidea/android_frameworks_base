@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+ifeq ($(WIMM_NO_WEBKIT),)
+
 TOP_LOCAL_PATH:= $(call my-dir)
 
 # Build application
@@ -34,3 +36,5 @@ include $(BUILD_PACKAGE)
 
 # Also build all of the sub-targets under this one: the shared library.
 include $(call all-makefiles-under,$(LOCAL_PATH))
+
+endif

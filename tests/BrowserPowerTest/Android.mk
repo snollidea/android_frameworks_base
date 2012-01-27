@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+ifeq ($(WIMM_NO_WEBKIT),)
+
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
@@ -28,3 +30,5 @@ LOCAL_PACKAGE_NAME := BrowserPowerTests
 #LOCAL_INSTRUMENTATION_FOR := browserpowertest
 
 include $(BUILD_PACKAGE)
+
+endif
