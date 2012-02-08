@@ -52,6 +52,11 @@ public class Credentials {
 
     /** Key prefix for user private keys. */
     public static final String USER_PRIVATE_KEY = "USRPKEY_";
+    /** Key prefix for WAPI AS certificates. */
+    public static final String WAPI_AS_CERTIFICATE = "WAPIAS_";
+
+    /** Key prefix for WAPI user certificates. */
+    public static final String WAPI_USER_CERTIFICATE = "WAPIUSR_";
 
     /** Key prefix for VPN. */
     public static final String VPN = "VPN_";

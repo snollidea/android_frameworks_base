@@ -1280,6 +1280,22 @@ public class Intent implements Parcelable, Cloneable {
     public static final String ACTION_SCREEN_ON = "android.intent.action.SCREEN_ON";
 
     /**
+     * Broadcast Action: Sent when the screen will dim.
+     * (WIMM)
+     * @hide
+     */
+    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
+    public static final String ACTION_SCREEN_DIM = "android.intent.action.SCREEN_DIM";
+
+    /**
+     * Broadcast Action: Sent when the focused activity changes.
+     * (WIMM)
+     * @hide
+     */
+    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
+    public static final String ACTION_ACTIVITY_CHANGED = "android.intent.action.ACTIVITY_CHANGED";
+    
+    /**
      * Broadcast Action: Sent when the user is present after device wakes up (e.g when the
      * keyguard is gone).
      *
@@ -2610,6 +2626,12 @@ public class Intent implements Parcelable, Cloneable {
      * the bug report.
      */
     public static final String EXTRA_BUG_REPORT = "android.intent.extra.BUG_REPORT";
+
+    /**
+     * (WIMM)
+     * @hide
+     */
+    public static final String EXTRA_ACTIVITY_COMPONENT = "android.intent.extra.ACTIVITY_COMPONENT";
 
     /**
      * Used in the extra field in the remote intent. It's astring token passed with the

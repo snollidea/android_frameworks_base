@@ -58,6 +58,7 @@ int setCurrentTimeMillis(int64_t millis)
     int ret = 0;
 
     if (millis <= 0 || millis / 1000LL >= INT_MAX) {
+        LOGW("Unable to set clock: %ld millis is out of range\n", millis);
         return -1;
     }
 

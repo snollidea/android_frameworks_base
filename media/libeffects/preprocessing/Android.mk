@@ -1,3 +1,5 @@
+ifeq ($(TARGET_WIMM),)
+
 LOCAL_PATH:= $(call my-dir)
 
 # audio preprocessing wrapper
@@ -30,3 +32,5 @@ LOCAL_SHARED_LIBRARIES += libdl
 endif
 
 include $(BUILD_SHARED_LIBRARY)
+
+endif

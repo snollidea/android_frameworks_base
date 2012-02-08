@@ -137,6 +137,10 @@ LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
 
 LOCAL_CFLAGS += -Werror -Wall -Wno-unused-parameter -Wno-unused-variable
 
+ifeq ($(TARGET_BOARD_PLATFORM), $(filter s5pc110 wimm%, $(TARGET_BOARD_PLATFORM)))
+	LOCAL_CFLAGS += -DHAS_CONTEXT_PRIORITY
+endif
+
 LOCAL_LDLIBS := -lpthread -ldl
 LOCAL_MODULE:= libRS
 LOCAL_MODULE_TAGS := optional
