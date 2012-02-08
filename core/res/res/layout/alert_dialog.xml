@@ -24,10 +24,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingTop="9dip"
-    android:paddingBottom="3dip"
-    android:paddingLeft="3dip"
-    android:paddingRight="1dip"
+    android:paddingTop="6dip"
+    android:paddingBottom="0dip"
+    android:paddingLeft="2dip"
+    android:paddingRight="0dip"
     android:majorWeight="0.65"
     android:minorWeight="0.9">
 

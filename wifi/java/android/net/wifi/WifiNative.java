@@ -156,4 +156,10 @@ public class WifiNative {
      * @return the event string sent by the supplicant.
      */
     public native static String waitForEvent();
+
+    public native static boolean startWpsPbcCommand();
+
+    public native static boolean startWpsPinCommand(String bssid, String pin);
+
+    public native static boolean stopWpsCommand();
 }

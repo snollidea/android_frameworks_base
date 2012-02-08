@@ -994,7 +994,34 @@ public class SensorManager
         return registerListener(listener, sensor, rate, null);
     }
 
+    /**
+     * WIMM
+     * For use by PedometerService.
+     * {@hide}
+     */
+    public boolean isUsingSensor(int type) {
+        Sensor sensor = getDefaultSensor(type);
+        if ( sensor == null ) return false;
+        
+        synchronized(sListeners) {
+            for (ListenerDelegate i : sListeners) {
+                if (i.hasSensor(sensor)) return true;
+            }
+        }
+        
+        return false;
+    }
+    
     private boolean enableSensorLocked(Sensor sensor, int delay) {
+        /* 
+         * WIMM: Don't enable sensors in low power mode
+         */
+        if (android.os.SystemProperties.get("hw.sensors.suspended","0").equals("1")) {
+            Log.w(TAG, "suspended for low power (sensor=" 
+                + sensor.getName() + ", id=" + sensor.getHandle() + ")");
+            return false;
+        }
+         
         boolean result = false;
         for (ListenerDelegate i : sListeners) {
             if (i.hasSensor(sensor)) {

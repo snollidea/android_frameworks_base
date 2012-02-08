@@ -336,6 +336,8 @@ public class DownloadManager {
         private boolean mRoamingAllowed = true;
         private int mAllowedNetworkTypes = ~0; // default to all network types allowed
         private boolean mIsVisibleInDownloadsUi = true;
+        private String mNotifyPackage;
+        private String mNotifyClass;
 
         /**
          * @param uri the HTTP URI to download.
@@ -345,12 +347,22 @@ public class DownloadManager {
                 throw new NullPointerException();
             }
             String scheme = uri.getScheme();
-            if (scheme == null || !scheme.equals("http")) {
-                throw new IllegalArgumentException("Can only download HTTP URIs: " + uri);
+            // keith 2011.05.26 - why only http?
+            if (scheme == null || !(scheme.equals("http") || scheme.equals("https"))) {
+                throw new IllegalArgumentException("Can only download HTTP or HTTPS URIs: " + uri);
             }
             mUri = uri;
         }
 
+        /**
+         * @hide
+         */
+        public Request setNotifyClass(String pkgName, String className) {
+            mNotifyPackage = pkgName;
+            mNotifyClass = className;            
+            return this;
+        }
+        
         /**
          * Set the local destination for the downloaded file. Must be a file URI to a path on
          * external storage, and the calling application must have the WRITE_EXTERNAL_STORAGE
@@ -516,7 +528,13 @@ public class DownloadManager {
             assert mUri != null;
             values.put(Downloads.COLUMN_URI, mUri.toString());
             values.put(Downloads.Impl.COLUMN_IS_PUBLIC_API, true);
+            
+            if ((mNotifyPackage != null) && (mNotifyClass != null)) {
+                values.put(Downloads.COLUMN_NOTIFICATION_PACKAGE, mNotifyPackage);
+                values.put(Downloads.COLUMN_NOTIFICATION_CLASS, mNotifyClass);
+            } else {
             values.put(Downloads.COLUMN_NOTIFICATION_PACKAGE, packageName);
+            }
 
             if (mDestinationUri != null) {
                 values.put(Downloads.COLUMN_DESTINATION, Downloads.Impl.DESTINATION_FILE_URI);
@@ -582,6 +600,8 @@ public class DownloadManager {
         private String mOrderByColumn = Downloads.COLUMN_LAST_MODIFICATION;
         private int mOrderDirection = ORDER_DESCENDING;
         private boolean mOnlyIncludeVisibleInDownloadsUi = false;
+        private String mMediaType = null;
+        private String mTitle = null;
 
         /**
          * Include only the downloads with the given IDs.
@@ -599,6 +619,22 @@ public class DownloadManager {
          */
         public Query setFilterByStatus(int flags) {
             mStatusFlags = flags;
+            return this;
+        }
+
+        /**
+         * @hide
+         */
+        public Query setFilterByMediaType(String type) {
+            mMediaType = type;
+            return this;
+        }
+
+        /**
+         * @hide
+         */
+        public Query setFilterByTitle(String type) {
+            mTitle = type;
             return this;
         }
 
@@ -682,6 +718,14 @@ public class DownloadManager {
 
             if (mOnlyIncludeVisibleInDownloadsUi) {
                 selectionParts.add(Downloads.Impl.COLUMN_IS_VISIBLE_IN_DOWNLOADS_UI + " != '0'");
+            }
+
+            if (mMediaType != null) {
+                selectionParts.add(Downloads.COLUMN_MIME_TYPE + " = '" + mMediaType +"'");
+            }
+            
+            if (mTitle != null) {
+                selectionParts.add(Downloads.COLUMN_TITLE + " = '" + mTitle +"'");
             }
 
             // only return rows which are not marked 'deleted = 1'
@@ -1004,6 +1048,18 @@ public class DownloadManager {
                 return Uri.fromFile(new File(localPath)).toString();
             }
 
+            // keith 2011.05.24 added - clearly it was the intent of the implementor to prevent
+            // direct access to d/l files in /cache, but how else do I get a uri to my file?
+            if (destinationType == Downloads.Impl.DESTINATION_CACHE_PARTITION
+                    || destinationType == Downloads.Impl.DESTINATION_CACHE_PARTITION_PURGEABLE
+                    || destinationType == Downloads.Impl.DESTINATION_CACHE_PARTITION_NOROAMING) {
+                String localPath = getUnderlyingString(Downloads.Impl._DATA);
+                if (localPath == null) {
+                    return null;
+                }
+                return Uri.fromFile(new File(localPath)).toString();
+            }
+            
             // return content URI for cache download
             long downloadId = getUnderlyingLong(Downloads.Impl._ID);
             return ContentUris.withAppendedId(mBaseUri, downloadId).toString();

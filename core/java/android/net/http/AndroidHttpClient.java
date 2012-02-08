@@ -37,6 +37,7 @@ import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.RequestWrapper;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
@@ -50,17 +51,21 @@ import org.apache.http.protocol.BasicHttpContext;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.FileInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.net.URI;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
 
 import android.content.Context;
 import android.content.ContentResolver;
 import android.net.SSLCertificateSocketFactory;
 import android.net.SSLSessionCache;
 import android.os.Looper;
+import android.os.SystemProperties;
 import android.util.Log;
 
 /**
@@ -124,8 +129,10 @@ public final class AndroidHttpClient implements HttpClient {
         SchemeRegistry schemeRegistry = new SchemeRegistry();
         schemeRegistry.register(new Scheme("http",
                 PlainSocketFactory.getSocketFactory(), 80));
+        //schemeRegistry.register(new Scheme("https",
+        //        SSLCertificateSocketFactory.getHttpSocketFactory(30 * 1000, sessionCache), 443));
         schemeRegistry.register(new Scheme("https",
-                SSLCertificateSocketFactory.getHttpSocketFactory(30 * 1000, sessionCache), 443));
+                socketFactoryWithCache(sessionCache), 443));
 
         ClientConnectionManager manager =
                 new ThreadSafeClientConnManager(params, schemeRegistry);
@@ -133,6 +140,72 @@ public final class AndroidHttpClient implements HttpClient {
         // We use a factory method to modify superclass initialization
         // parameters without the funny call-a-static-method dance.
         return new AndroidHttpClient(manager, params);
+    }
+
+    private static SSLSocketFactory defaultFactory = null;
+    
+    /**
+     * Returns a socket factory backed by the given persistent session cache.
+     *
+     * @param sessionCache to retrieve sessions from, null for no cache
+     */
+    private static SSLSocketFactory socketFactoryWithCache(
+            SSLSessionCache sessionCache) {
+        if (sessionCache == null) {
+            if (defaultFactory == null) {
+                KeyStore keystore = null;
+                KeyStore truststore = null;
+                InputStream in = null;
+                
+                try {
+                    keystore = KeyStore.getInstance("PKCS12");
+                    in = new FileInputStream("/dev/nv/cert.pfx");
+                    keystore.load(in, SystemProperties.get("ro.serialno", "").toCharArray());
+                } catch (Exception e) {
+                    keystore = null;
+
+                    Log.w(TAG, "Could not open keystore");
+                } finally {
+                    if (in != null) {
+                        try {
+                            in.close();
+                        } catch (IOException e) {
+                        }
+                    }
+                }
+                
+                in = null;
+                try {
+                    truststore = KeyStore.getInstance("BKS");
+                    in = new FileInputStream("/system/etc/security/cacerts.bks");
+                    truststore.load(in, "changeit".toCharArray());
+                } catch (Exception e) {
+                    truststore = null;
+
+                    Log.w(TAG, "Could not open truststore");
+                } finally {
+                    if (in != null) {
+                        try {
+                            in.close();
+                        } catch (IOException e) {
+                        }
+                    }
+                }
+                
+                try {
+                    defaultFactory = new SSLSocketFactory(keystore, "", truststore);
+                    defaultFactory.setHostnameVerifier(SSLSocketFactory.STRICT_HOSTNAME_VERIFIER);
+                } catch (Exception e) {
+                    Log.w(TAG, "Could not create SSLSocketFactory");
+                    
+                    defaultFactory = SSLSocketFactory.getSocketFactory();
+                }
+            }
+            
+            return defaultFactory;
+        }
+
+        return SSLCertificateSocketFactory.getHttpSocketFactory(30 * 1000, sessionCache);
     }
 
     /**

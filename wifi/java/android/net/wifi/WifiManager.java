@@ -125,6 +125,11 @@ public class WifiManager {
      */
     public static final int WIFI_STATE_UNKNOWN = 4;
 
+    public static final int WPS_STATE_IDLE = 0;
+    public static final int WPS_STATE_STARTING = 1;
+    public static final int WPS_STATE_RUNNING = 2;
+    public static final int WPS_STATE_DONE = 3;
+
     /**
      * Broadcast intent action indicating that Wi-Fi AP has been enabled, disabled,
      * enabling, disabling, or failed.
@@ -217,6 +222,16 @@ public class WifiManager {
     @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
     public static final String SUPPLICANT_CONNECTION_CHANGE_ACTION =
         "android.net.wifi.supplicant.CONNECTION_CHANGE";
+    /**
+     * Added for WPS.
+     */
+    public static final String SUPPLICANT_WPS_EVENT =
+        "android.net.wifi.supplicant.WPS_EVENT";
+    /**
+     * Added for WAPI.
+     */
+    public static final String SUPPLICANT_WAPI_EVENT =
+        "android.net.wifi.supplicant.WAPI_EVENT";
     /**
      * The lookup key for a boolean that indicates whether a connection to
      * the supplicant daemon has been gained or lost. {@code true} means
@@ -336,6 +351,8 @@ public class WifiManager {
      */
     public static final int WIFI_MODE_SCAN_ONLY = 2;
 
+    public static final int WIFI_WPS_PBC = 0;
+    public static final int WIFI_WPS_PIN = 1;
     /** Anything worse than or equal to this will show 0 bars. */
     private static final int MIN_RSSI = -100;
     
@@ -1266,6 +1283,54 @@ public class WifiManager {
             return true;
         } catch (RemoteException e) {
              return false;
+        }
+    }
+
+    /**
+     * Request the supplicant to start WPS process.
+     * <p>
+     * Note: It is possible for this method to change the network IDs of
+     * existing networks. You should assume the network IDs can be different
+     * after calling this method.
+     * 
+     * @return {@code true} if the operation succeeded
+     */
+    public boolean startWps(int wpsMethod, String wpsBssid, String wpsPin) {
+        try {
+            return mService.startWps(wpsMethod, wpsBssid, wpsPin);
+        } catch (RemoteException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Request the supplicant to stop WPS process.
+     * <p>
+     * Note: It is possible for this method to change the network IDs of
+     * existing networks. You should assume the network IDs can be different
+     * after calling this method.
+     * 
+     * @return {@code true} if the operation succeeded
+     */
+    public boolean stopWps() {
+        try {
+            return mService.stopWps();
+        } catch (RemoteException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Return the WPS process state.
+     * @return the state of WPS process.
+     *
+     * @hide pending API council
+     */
+    public int getWpsState() {
+        try {
+            return mService.getWpsState();
+        } catch (RemoteException e) {
+            return -1;
         }
     }
 }

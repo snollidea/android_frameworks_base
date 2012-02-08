@@ -49,6 +49,16 @@ public class WifiMonitor {
     private static final String eventPrefix = "CTRL-EVENT-";
     private static final int eventPrefixLen = eventPrefix.length();
 
+    /** Adding WPS prefix */
+    private static final String wpsEventPrefix = "WPS-";
+
+    /** Adding WAPI prefix */
+    private static final String wapiEventPrefix = "WAPI:";
+    private static final String certificateFailureEvent =
+       "certificate initialization failed";
+    private static final String authenticationFailureEvent =
+       "authentication failed";
+
     /** All WPA events coming from the supplicant start with this prefix */
     private static final String wpaEventPrefix = "WPA:";
     private static final String passwordKeyMayBeIncorrectEvent =
@@ -176,6 +186,27 @@ public class WifiMonitor {
                     Log.v(TAG, "Event [" + eventStr + "]");
                 }
                 if (!eventStr.startsWith(eventPrefix)) {
+                    // Parsing WPS event
+                    if (eventStr.startsWith(wpsEventPrefix)) {
+                        if (eventStr.startsWith("WPS-AP-AVAILABLE ")) {
+                            if (Config.LOGD) Log.v(TAG, "Ignore WPS event [" + eventStr + "]");
+                            continue;
+                        }
+                        handleWpsEvent(eventStr);
+                        continue;
+                    }
+                    if (eventStr.startsWith(wapiEventPrefix) &&
+                            0 < eventStr.indexOf(certificateFailureEvent)) {
+                        if (Config.LOGD) Log.v(TAG, "Got WAPI event [" + eventStr + "]");
+                        handleCertificateFailure();
+                        continue;
+                    }
+                    if (eventStr.startsWith(wapiEventPrefix) &&
+                            0 < eventStr.indexOf(authenticationFailureEvent)) {
+                        if (Config.LOGD) Log.v(TAG, "Got WAPI event [" + eventStr + "]");
+                        handleAuthenticationFailure();
+                        continue;
+                    }
                     if (eventStr.startsWith(wpaEventPrefix) &&
                             0 < eventStr.indexOf(passwordKeyMayBeIncorrectEvent)) {
                         handlePasswordKeyMayBeIncorrect();
@@ -282,6 +313,18 @@ public class WifiMonitor {
                 }
             }
             return false;
+        }
+        private void handleWpsEvent(String data) {
+            if (Config.LOGD) Log.d(TAG, "Received WPS event");
+            mWifiStateTracker.notifyWpsEvent(data);
+        }
+
+        private void handleCertificateFailure() {
+            mWifiStateTracker.notifyCertificateFailure();
+        }
+
+        private void handleAuthenticationFailure() {
+            mWifiStateTracker.notifyAuthenticationFailure();
         }
 
         private void handlePasswordKeyMayBeIncorrect() {

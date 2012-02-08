@@ -22,6 +22,11 @@ import static android.net.wifi.WifiManager.WIFI_STATE_ENABLED;
 import static android.net.wifi.WifiManager.WIFI_STATE_ENABLING;
 import static android.net.wifi.WifiManager.WIFI_STATE_UNKNOWN;
 
+import static android.net.wifi.WifiManager.WPS_STATE_IDLE;
+import static android.net.wifi.WifiManager.WPS_STATE_STARTING;
+import static android.net.wifi.WifiManager.WPS_STATE_RUNNING;
+import static android.net.wifi.WifiManager.WPS_STATE_DONE;
+
 import android.app.ActivityManagerNative;
 import android.app.AlarmManager;
 import android.app.Notification;
@@ -107,6 +112,12 @@ public class WifiStateTracker extends NetworkStateTracker {
     private static final int EVENT_PASSWORD_KEY_MAY_BE_INCORRECT     = 14;
     private static final int EVENT_MAYBE_START_SCAN_POST_DISCONNECT  = 15;
 
+    /** Adding WPS event. */
+    private static final int EVENT_WPS                               = 16;
+    /** Adding WAPI event. */
+    private static final int EVENT_WAPI_CERTIFICATE_FAILURE          = 17;
+    private static final int EVENT_WAPI_AUTHENTICATION_FAILURE       = 18;
+ 
     /**
      * The driver state indication.
      */
@@ -329,6 +340,8 @@ public class WifiStateTracker extends NetworkStateTracker {
             "Stopped"
     };
     private int mRunState;
+    // WPS run states:
+    private int mWpsState;
 
     private final IBatteryStats mBatteryStats;
 
@@ -388,6 +401,13 @@ public class WifiStateTracker extends NetworkStateTracker {
         String BSSID;
         int networkId;
     }
+    /** WPS event coming. */
+    private static class WpsEventComing {
+        WpsEventComing(String wpsEvent) {
+            this.wpsEvent = wpsEvent;
+        }
+        String wpsEvent;
+    }
 
     public WifiStateTracker(Context context, Handler target) {
         super(context, target, ConnectivityManager.TYPE_WIFI, 0, "WIFI", "");
@@ -402,6 +422,7 @@ public class WifiStateTracker extends NetworkStateTracker {
         // Allocate DHCP info object once, and fill it in on each request
         mDhcpInfo = new DhcpInfo();
         mRunState = RUN_STATE_STARTING;
+        mWpsState = WPS_STATE_IDLE;
 
         mAlarmManager = (AlarmManager)mContext.getSystemService(Context.ALARM_SERVICE);
         Intent dhcpRenewalIntent = new Intent(ACTION_DHCP_RENEW, null);
@@ -571,6 +592,21 @@ public class WifiStateTracker extends NetworkStateTracker {
     public boolean hasIpAddress() {
         return mHaveIpAddress;
     }
+     /**
+     * Send the tracker a notification that WAPI certificate cannot be
+     * initializaed (maybe keystore not enabled yet).
+     */
+    void notifyCertificateFailure() {
+        sendEmptyMessage(EVENT_WAPI_CERTIFICATE_FAILURE);
+    }
+
+    /**
+     * Send the tracker a notification that WAPI cert authentication does
+     * not pass.
+     */
+    void notifyAuthenticationFailure() {
+        sendEmptyMessage(EVENT_WAPI_AUTHENTICATION_FAILURE);
+    }
 
     /**
      * Send the tracker a notification that a user-entered password key
@@ -615,6 +651,13 @@ public class WifiStateTracker extends NetworkStateTracker {
         Message msg = Message.obtain(
             this, EVENT_NETWORK_STATE_CHANGED,
             new NetworkStateChangeResult(newState, BSSID, networkId));
+        msg.sendToTarget();
+    }
+    /** WPS event notification. */
+    void notifyWpsEvent(String wpsEvent) {
+        Message msg = Message.obtain(
+            this, EVENT_WPS,
+            new WpsEventComing(wpsEvent));
         msg.sendToTarget();
     }
 
@@ -875,6 +918,43 @@ public class WifiStateTracker extends NetworkStateTracker {
         Intent intent;
 
         switch (msg.what) {
+            /** Handling WAPI event. */
+            case EVENT_WAPI_CERTIFICATE_FAILURE:
+            case EVENT_WAPI_AUTHENTICATION_FAILURE:
+                if (LOCAL_LOGD) Log.v(TAG, "Handling EVENT_WAPI, msg [" + msg.what + "]");
+                String wapiEventName = "wapi_string";
+                intent = new Intent(WifiManager.SUPPLICANT_WAPI_EVENT);
+                intent.putExtra(wapiEventName, msg.what);
+                mContext.sendBroadcast(intent);
+                break;
+
+            /** Handling WPS event. */
+            case EVENT_WPS:
+                String wpsEventName = "wps_string";
+                WpsEventComing wpsEvent =
+                    (WpsEventComing) msg.obj;
+                if (LOCAL_LOGD) Log.v(TAG, "Handling EVENT_WPS, msg [" + wpsEvent.wpsEvent + "]");
+                if (wpsEvent.wpsEvent.startsWith("WPS-START")) {
+                    mWpsState = WPS_STATE_STARTING;
+                } else if (mWpsState == WPS_STATE_STARTING &&
+                        (wpsEvent.wpsEvent.startsWith("WPS-AP-AVAILABLE-PBC") ||
+                         wpsEvent.wpsEvent.startsWith("WPS-AP-AVAILABLE-PIN"))) {
+                    mWpsState = WPS_STATE_RUNNING;
+                } else if (wpsEvent.wpsEvent.startsWith("WPS-CRED-RECEIVED") ||
+                           wpsEvent.wpsEvent.startsWith("WPS-SUCCESS")) {
+                    mWpsState = WPS_STATE_RUNNING;
+                } else if (wpsEvent.wpsEvent.startsWith("WPS-FAIL") ||
+                           wpsEvent.wpsEvent.startsWith("WPS-TIMEOUT") ||
+                           wpsEvent.wpsEvent.startsWith("WPS-DONE")) {
+                    mWpsState = WPS_STATE_DONE;
+                    resetSupplicantLoopState();
+                }
+                if (LOCAL_LOGD) Log.v(TAG, "mWpsState " + mWpsState);
+                cancelDisconnect();
+                intent = new Intent(WifiManager.SUPPLICANT_WPS_EVENT);
+                intent.putExtra(wpsEventName, wpsEvent.wpsEvent);
+                mContext.sendBroadcast(intent);
+                break;
             case EVENT_SUPPLICANT_CONNECTION:
                 mRunState = RUN_STATE_RUNNING;
                 String macaddr;
@@ -1256,6 +1336,7 @@ public class WifiStateTracker extends NetworkStateTracker {
                  * to a given network, disable the network
                  */
                 if (mWifiInfo.getSupplicantState() != SupplicantState.UNINITIALIZED) {
+                    Log.d(TAG, "Failed reconnect count: " +mReconnectCount + " " + BSSID);
                     if (++mReconnectCount > getMaxDhcpRetries()) {
                         if (LOCAL_LOGD) {
                             Log.d(TAG, "Failed reconnect count: " +
@@ -1444,8 +1525,10 @@ public class WifiStateTracker extends NetworkStateTracker {
         NetworkUtils.resetConnections(mInterfaceName);
 
         // Stop DHCP
+        if (mDhcpTarget!=null) {
         mDhcpTarget.setCancelCallback(true);
         mDhcpTarget.removeMessages(EVENT_DHCP_START);
+        }
 
         if (!NetworkUtils.stopDhcp(mInterfaceName)) {
             Log.e(TAG, "Could not stop DHCP");
@@ -1516,11 +1599,14 @@ public class WifiStateTracker extends NetworkStateTracker {
 
             String[] lines = reply.split("\n");
             for (String line : lines) {
-                String[] prop = line.split(" *= *");
+                // WIMM #1663 
+                // SSIDs with an '=' sign were truncated.
+                // String[] prop = line.split(" *= *");
+                String[] prop = line.split("=",2);
                 if (prop.length < 2)
                     continue;
-                String name = prop[0];
-                String value = prop[1];
+                String name = prop[0].trim();
+                String value = prop[1].trim();
                 if (name.equalsIgnoreCase("id"))
                     netId = Integer.parseInt(value);
                 else if (name.equalsIgnoreCase("ssid"))
@@ -2424,6 +2510,59 @@ public class WifiStateTracker extends NetworkStateTracker {
                 append(", explicitlyDisabled=").append(mTornDownByConnMgr);
         return sb.toString();
     }
+    /* WPS */
+    /**
+     * Start Wi-Fi Protected Setup, Push Button Configuration.
+     *
+     * @return {@code true} if the operation succeeds, {@code false} otherwise
+     */
+    public synchronized boolean startWpsPbc() {
+        if (mWifiState.get() != WIFI_STATE_ENABLED) {
+            return false;
+        }
+        return WifiNative.startWpsPbcCommand();
+    }
+
+    /**
+     * Start Wi-Fi Protected Setup, Pin Input Configuration.
+     *
+     * @param bssid BSSID of the network
+     * @param pin PIN of the network
+     * @return {@code true} if the operation succeeds, {@code false} otherwise
+     */
+    public synchronized boolean startWpsPin(String bssid, String pin) {
+        if (mWifiState.get() != WIFI_STATE_ENABLED ||
+                bssid == null ||
+                pin == null) {
+            return false;
+        }
+        return WifiNative.startWpsPinCommand(bssid, pin);
+    }
+
+    /**
+     * Stop Wi-Fi Protected Setup.
+     *
+     * @return {@code true} if the operation succeeds, {@code false} otherwise
+     */
+    public synchronized boolean stopWps() {
+        if (mWifiState.get() != WIFI_STATE_ENABLED) {
+            return false;
+        }
+        return WifiNative.stopWpsCommand();
+    }
+
+    /**
+     * Get state of WPS process.
+     *
+     * @return WPS state, -1 on failure
+     */
+    public synchronized int getWpsState() {
+        if (mWifiState.get() != WIFI_STATE_ENABLED) {
+            return -1;
+        }
+        return mWpsState;
+    }
+    /* WPS */
 
     private class DhcpHandler extends Handler {
 

@@ -4983,7 +4983,7 @@ public class WindowManagerService extends IWindowManager.Stub
         final int dw = rotated ? mInitialDisplayHeight : mInitialDisplayWidth;
         final int dh = rotated ? mInitialDisplayWidth : mInitialDisplayHeight;
 
-        int orientation = Configuration.ORIENTATION_SQUARE;
+        int orientation = Configuration.ORIENTATION_PORTRAIT;
         if (dw < dh) {
             orientation = Configuration.ORIENTATION_PORTRAIT;
         } else if (dw > dh) {

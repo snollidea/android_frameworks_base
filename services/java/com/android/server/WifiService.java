@@ -27,7 +27,12 @@ import static android.net.wifi.WifiManager.WIFI_AP_STATE_DISABLING;
 import static android.net.wifi.WifiManager.WIFI_AP_STATE_ENABLED;
 import static android.net.wifi.WifiManager.WIFI_AP_STATE_ENABLING;
 import static android.net.wifi.WifiManager.WIFI_AP_STATE_FAILED;
-
+import static android.net.wifi.WifiManager.WIFI_WPS_PBC;
+import static android.net.wifi.WifiManager.WIFI_WPS_PIN;
+import static android.net.wifi.WifiManager.WPS_STATE_IDLE;
+import static android.net.wifi.WifiManager.WPS_STATE_STARTING;
+import static android.net.wifi.WifiManager.WPS_STATE_RUNNING;
+import static android.net.wifi.WifiManager.WPS_STATE_DONE;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothA2dp;
@@ -1097,6 +1102,52 @@ public class WifiService extends IWifiManager.Stub {
                 field.setValue(value);
             }
         }
+
+        /* WAPI */
+        if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WAPI_PSK)) {
+            value = mWifiStateTracker.getNetworkVariable(netId, WifiConfiguration.wapiPskTypeVarName);
+            config.wapiPskType = -1;
+            if (DBG) {
+                Slog.d(TAG, "***WAPI : readNetworkVariables WAPI_PSK key type " + value);
+            }
+            if (!TextUtils.isEmpty(value)) {
+                try {
+                    config.wapiPskType = Integer.parseInt(value);
+                } catch (NumberFormatException ignore) {
+                }
+            }
+        } else if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WAPI_CERT)) {
+            value = mWifiStateTracker.getNetworkVariable(netId, WifiConfiguration.wapiCertIndexVarName);
+            config.wapiCertIndex = -1;
+            if (DBG) {
+                Slog.d(TAG, "***WAPI : readNetworkVariables WAPI_CERT index " + value);
+            }
+            if (!TextUtils.isEmpty(value)) {
+                try {
+                    config.wapiCertIndex = Integer.parseInt(value);
+                } catch (NumberFormatException ignore) {
+                }
+            }
+            value = mWifiStateTracker.getNetworkVariable(netId, WifiConfiguration.wapiAsCertVarName);
+            if (DBG) {
+                Slog.d(TAG, "***WAPI : readNetworkVariables WAPI_CERT as cert " + value);
+            }
+            if (!TextUtils.isEmpty(value)) {
+                config.wapiAsCert = removeDoubleQuotes(value);
+            } else {
+                config.wapiAsCert = null;
+            }
+            value = mWifiStateTracker.getNetworkVariable(netId, WifiConfiguration.wapiUserCertVarName);
+            if (DBG) {
+                Slog.d(TAG, "***WAPI : readNetworkVariables WAPI_CERT user cert " + value);
+            }
+            if (!TextUtils.isEmpty(value)) {
+                config.wapiUserCert = removeDoubleQuotes(value);
+            } else {
+                config.wapiUserCert = null;
+            }
+        }
+        /* WAPI */
     }
 
     private static String removeDoubleQuotes(String string) {
@@ -1195,6 +1246,68 @@ public class WifiService extends IWifiManager.Stub {
                 }
                 break setVariables;
             }
+            /* WAPI */
+            if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WAPI_PSK)) {
+                if (!mWifiStateTracker.setNetworkVariable(
+                    netId,
+                    WifiConfiguration.wapiPskTypeVarName,
+                    Integer.toString(config.wapiPskType))) {
+                    if (DBG) {
+                        Slog.d(TAG, config.SSID + ": failed to set WAPI_PSK key type: "+
+                                config.wapiPskType);
+                    }
+                    break setVariables;
+                }
+
+                // Prevent client screw-up by passing in a WifiConfiguration we gave it
+                // by preventing "*" as a key.
+                if (config.preSharedKey != null && !config.preSharedKey.equals("*") &&
+                    !mWifiStateTracker.setNetworkVariable(
+                    netId,
+                    WifiConfiguration.pskVarName,
+                    config.preSharedKey)) {
+                    if (DBG) {
+                        Slog.d(TAG, "failed to set psk: "+
+                                config.preSharedKey);
+                    }
+                    break setVariables;
+                }
+            } else if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WAPI_CERT)) {
+                if (!mWifiStateTracker.setNetworkVariable(
+                    netId,
+                    WifiConfiguration.wapiCertIndexVarName,
+                    Integer.toString(config.wapiCertIndex))) {
+                    if (DBG) {
+                        Slog.d(TAG, config.SSID + ": failed to set WAPI_CERT index: "+
+                                config.wapiCertIndex);
+                    }
+                    break setVariables;
+                }
+                if (config.wapiAsCert != null &&
+                    !mWifiStateTracker.setNetworkVariable(
+                    netId,
+                    WifiConfiguration.wapiAsCertVarName,
+                    config.wapiAsCert)) {
+                    if (DBG) {
+                        Slog.d(TAG, "failed to set WAPI_CERT as cert: "+
+                                config.wapiAsCert);
+                    }
+                    break setVariables;
+                }
+
+                if (config.wapiUserCert != null &&
+                    !mWifiStateTracker.setNetworkVariable(
+                    netId,
+                    WifiConfiguration.wapiUserCertVarName,
+                    config.wapiUserCert)) {
+                    if (DBG) {
+                        Slog.d(TAG, "failed to set WAPI_CERT user cert: "+
+                                config.wapiUserCert);
+                    }
+                    break setVariables;
+                }
+            } else {
+            /* WAPI */
 
             String allowedAuthAlgorithmsString =
                 makeString(config.allowedAuthAlgorithms, WifiConfiguration.AuthAlgorithm.strings);
@@ -1286,7 +1399,9 @@ public class WifiService extends IWifiManager.Stub {
                     break setVariables;
                 }
             }
-
+            /* WAPI */
+            }
+            /* WAPI */
             if (!mWifiStateTracker.setNetworkVariable(
                         netId,
                         WifiConfiguration.priorityVarName,
@@ -1625,6 +1740,60 @@ public class WifiService extends IWifiManager.Stub {
             }
         }
         return result;
+    }
+     /**
+     * Tell the supplicant to start WPS process.
+     * @return {@code true} if the operation succeeded
+     */
+    public boolean startWps(int wpsMethod, String wpsSsid, String wpsPin) {
+        boolean result;
+        enforceChangePermission();
+
+        synchronized (mWifiStateTracker) {
+            if (wpsMethod == WIFI_WPS_PBC) {
+                if (DBG) {
+                    Slog.d(TAG, "WifiService.startWps() - startWpsPbc");
+                }
+                result = mWifiStateTracker.startWpsPbc();
+            } else if (wpsMethod == WIFI_WPS_PIN) {
+                if (DBG) {
+                    Slog.d(TAG, "WifiService.startWps() - startWpsPin " + wpsSsid + " " + wpsPin);
+                }
+                result = mWifiStateTracker.startWpsPin(wpsSsid, wpsPin);
+            } else {
+                result = false;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Tell the supplicant to stop WPS connection.
+     * @return {@code true} if the operation succeeded
+     */
+    public boolean stopWps() {
+        boolean result;
+        enforceChangePermission();
+
+        synchronized (mWifiStateTracker) {
+            result = mWifiStateTracker.stopWps();
+        }
+        return result;
+    }
+
+    /**
+     * Return the state of WPS process.
+     * @return the state of WPS, or {@code -1} if an error occurs
+     */
+    public int getWpsState() {
+        int state;
+        enforceAccessPermission();
+
+        state = mWifiStateTracker.getWpsState();
+        if (state < 0) {
+            state = WPS_STATE_IDLE;
+        }
+        return state;
     }
 
     /**

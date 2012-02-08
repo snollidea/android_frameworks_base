@@ -75,7 +75,8 @@ public class StatusBarManager {
      */
     public void disable(int what) {
         try {
-            mService.disable(what, mToken, mContext.getPackageName());
+            if (mService != null)
+                mService.disable(what, mToken, mContext.getPackageName());
         } catch (RemoteException ex) {
             // system process is dead anyway.
             throw new RuntimeException(ex);
@@ -87,7 +88,8 @@ public class StatusBarManager {
      */
     public void expand() {
         try {
-            mService.expand();
+            if (mService != null)
+                mService.expand();
         } catch (RemoteException ex) {
             // system process is dead anyway.
             throw new RuntimeException(ex);
@@ -99,7 +101,8 @@ public class StatusBarManager {
      */
     public void collapse() {
         try {
-            mService.collapse();
+            if (mService != null)
+                mService.collapse();
         } catch (RemoteException ex) {
             // system process is dead anyway.
             throw new RuntimeException(ex);
@@ -108,7 +111,8 @@ public class StatusBarManager {
 
     public void setIcon(String slot, int iconId, int iconLevel) {
         try {
-            mService.setIcon(slot, mContext.getPackageName(), iconId, iconLevel);
+            if (mService != null)
+                mService.setIcon(slot, mContext.getPackageName(), iconId, iconLevel);
         } catch (RemoteException ex) {
             // system process is dead anyway.
             throw new RuntimeException(ex);
@@ -117,7 +121,8 @@ public class StatusBarManager {
 
     public void removeIcon(String slot) {
         try {
-            mService.removeIcon(slot);
+            if (mService != null)
+                mService.removeIcon(slot);
         } catch (RemoteException ex) {
             // system process is dead anyway.
             throw new RuntimeException(ex);
@@ -126,7 +131,8 @@ public class StatusBarManager {
 
     public void setIconVisibility(String slot, boolean visible) {
         try {
-            mService.setIconVisibility(slot, visible);
+            if (mService != null)
+                mService.setIconVisibility(slot, visible);
         } catch (RemoteException ex) {
             // system process is dead anyway.
             throw new RuntimeException(ex);
