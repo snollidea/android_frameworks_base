@@ -102,7 +102,7 @@ LOCAL_SRC_FILES:= \
 	rsType.cpp \
 	rsVertexArray.cpp
 
-ifeq ($(TARGET_BOARD_PLATFORM), $(filter s5pc110 wimm%, $(TARGET_BOARD_PLATFORM)))
+ifeq ($(TARGET_BOARD_PLATFORM), s5p6442)
 	LOCAL_CFLAGS += -DHAS_CONTEXT_PRIORITY
 endif
 
