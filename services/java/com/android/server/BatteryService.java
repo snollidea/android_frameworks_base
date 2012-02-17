@@ -63,6 +63,7 @@ import java.io.PrintWriter;
  * <p>&quot;plugged&quot; - int, 0 if the device is not plugged in; 1 if plugged
  * into an AC power adapter; 2 if plugged in via USB.</p>
  * <p>&quot;voltage&quot; - int, current battery voltage in millivolts</p>
+ * <p>&quot;current&quot; - int, battery current in milliamps</p>
  * <p>&quot;temperature&quot; - int, current battery temperature in tenths of
  * a degree Centigrade</p>
  * <p>&quot;technology&quot; - String, the type of battery installed, e.g. "Li-ion"</p>
@@ -97,6 +98,7 @@ class BatteryService extends Binder {
     private boolean mBatteryPresent;
     private int mBatteryLevel;
     private int mBatteryVoltage;
+    private int mBatteryCurrent;
     private int mBatteryTemperature;
     private String mBatteryTechnology;
     private boolean mBatteryLevelCritical;
@@ -106,6 +108,7 @@ class BatteryService extends Binder {
     private boolean mLastBatteryPresent;
     private int mLastBatteryLevel;
     private int mLastBatteryVoltage;
+    private int mLastBatteryCurrent;
     private int mLastBatteryTemperature;
     private boolean mLastBatteryLevelCritical;
 
@@ -238,6 +241,7 @@ class BatteryService extends Binder {
                 mBatteryLevel != mLastBatteryLevel ||
                 mPlugType != mLastPlugType ||
                 mBatteryVoltage != mLastBatteryVoltage ||
+                mBatteryCurrent != mLastBatteryCurrent ||
                 mBatteryTemperature != mLastBatteryTemperature) {
 
             if (mPlugType != mLastPlugType) {
@@ -270,9 +274,11 @@ class BatteryService extends Binder {
             }
             if (mBatteryLevel != mLastBatteryLevel ||
                     mBatteryVoltage != mLastBatteryVoltage ||
+                    mBatteryCurrent != mLastBatteryCurrent ||
                     mBatteryTemperature != mLastBatteryTemperature) {
                 EventLog.writeEvent(EventLogTags.BATTERY_LEVEL,
-                        mBatteryLevel, mBatteryVoltage, mBatteryTemperature);
+                        mBatteryLevel, mBatteryVoltage, mBatteryCurrent,
+                        mBatteryTemperature);
             }
             if (mBatteryLevelCritical && !mLastBatteryLevelCritical &&
                     mPlugType == BATTERY_PLUGGED_NONE) {
@@ -333,6 +339,7 @@ class BatteryService extends Binder {
             mLastBatteryLevel = mBatteryLevel;
             mLastPlugType = mPlugType;
             mLastBatteryVoltage = mBatteryVoltage;
+            mLastBatteryCurrent = mBatteryCurrent;
             mLastBatteryTemperature = mBatteryTemperature;
             mLastBatteryLevelCritical = mBatteryLevelCritical;
         }
@@ -354,6 +361,7 @@ class BatteryService extends Binder {
         intent.putExtra(BatteryManager.EXTRA_ICON_SMALL, icon);
         intent.putExtra(BatteryManager.EXTRA_PLUGGED, mPlugType);
         intent.putExtra(BatteryManager.EXTRA_VOLTAGE, mBatteryVoltage);
+        intent.putExtra(BatteryManager.EXTRA_CURRENT, mBatteryCurrent);
         intent.putExtra(BatteryManager.EXTRA_TEMPERATURE, mBatteryTemperature);
         intent.putExtra(BatteryManager.EXTRA_TECHNOLOGY, mBatteryTechnology);
 
@@ -362,6 +370,7 @@ class BatteryService extends Binder {
                     " scale:" + BATTERY_SCALE + " status:" + mBatteryStatus +
                     " health:" + mBatteryHealth +  " present:" + mBatteryPresent +
                     " voltage: " + mBatteryVoltage +
+                    " current: " + mBatteryCurrent +
                     " temperature: " + mBatteryTemperature +
                     " technology: " + mBatteryTechnology +
                     " AC powered:" + mAcOnline + " USB powered:" + mUsbOnline +
@@ -470,6 +479,7 @@ class BatteryService extends Binder {
             pw.println("  level: " + mBatteryLevel);
             pw.println("  scale: " + BATTERY_SCALE);
             pw.println("  voltage:" + mBatteryVoltage);
+            pw.println("  current:" + mBatteryCurrent);
             pw.println("  temperature: " + mBatteryTemperature);
             pw.println("  technology: " + mBatteryTechnology);
         }
