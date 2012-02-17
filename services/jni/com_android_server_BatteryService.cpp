@@ -47,6 +47,7 @@ struct FieldIds {
     jfieldID mBatteryPresent;
     jfieldID mBatteryLevel;
     jfieldID mBatteryVoltage;
+    jfieldID mBatteryCurrent;
     jfieldID mBatteryTemperature;
     jfieldID mBatteryTechnology;
 };
@@ -76,6 +77,7 @@ struct PowerSupplyPaths {
     char* batteryPresentPath;
     char* batteryCapacityPath;
     char* batteryVoltagePath;
+    char* batteryCurrentPath;
     char* batteryTemperaturePath;
     char* batteryTechnologyPath;
 };
@@ -193,6 +195,17 @@ static void setVoltageField(JNIEnv* env, jobject obj, const char* path, jfieldID
     env->SetIntField(obj, fieldID, value);
 }
 
+static void setCurrentField(JNIEnv* env, jobject obj, const char* path, jfieldID fieldID)
+{
+    const int SIZE = 128;
+    char buf[SIZE];
+
+    jint value = 0;
+    if (readFromFile(path, buf, SIZE) > 0)
+        value = atoi(buf);
+
+    env->SetIntField(obj, fieldID, value);
+}
 
 static void android_server_BatteryService_update(JNIEnv* env, jobject obj)
 {
@@ -202,6 +215,7 @@ static void android_server_BatteryService_update(JNIEnv* env, jobject obj)
     
     setIntField(env, obj, gPaths.batteryCapacityPath, gFieldIds.mBatteryLevel);
     setVoltageField(env, obj, gPaths.batteryVoltagePath, gFieldIds.mBatteryVoltage);
+    setCurrentField(env, obj, gPaths.batteryCurrentPath, gFieldIds.mBatteryCurrent);
     setIntField(env, obj, gPaths.batteryTemperaturePath, gFieldIds.mBatteryTemperature);
     
     const int SIZE = 128;
@@ -286,6 +300,10 @@ int register_android_server_BatteryService(JNIEnv* env)
                         gPaths.batteryVoltagePath = strdup(path);
                 }
 
+                snprintf(path, sizeof(path), "%s/%s/current_now", POWER_SUPPLY_PATH, name);
+                if (access(path, R_OK) == 0)
+                    gPaths.batteryCurrentPath = strdup(path);
+
                 snprintf(path, sizeof(path), "%s/%s/temp", POWER_SUPPLY_PATH, name);
                 if (access(path, R_OK) == 0) {
                     gPaths.batteryTemperaturePath = strdup(path);
@@ -317,6 +335,8 @@ int register_android_server_BatteryService(JNIEnv* env)
         LOGE("batteryCapacityPath not found");
     if (!gPaths.batteryVoltagePath)
         LOGE("batteryVoltagePath not found");
+    if (!gPaths.batteryCurrentPath)
+        LOGE("batteryCurrentPath not found");
     if (!gPaths.batteryTemperaturePath)
         LOGE("batteryTemperaturePath not found");
     if (!gPaths.batteryTechnologyPath)
@@ -337,6 +357,7 @@ int register_android_server_BatteryService(JNIEnv* env)
     gFieldIds.mBatteryLevel = env->GetFieldID(clazz, "mBatteryLevel", "I");
     gFieldIds.mBatteryTechnology = env->GetFieldID(clazz, "mBatteryTechnology", "Ljava/lang/String;");
     gFieldIds.mBatteryVoltage = env->GetFieldID(clazz, "mBatteryVoltage", "I");
+    gFieldIds.mBatteryCurrent = env->GetFieldID(clazz, "mBatteryCurrent", "I");
     gFieldIds.mBatteryTemperature = env->GetFieldID(clazz, "mBatteryTemperature", "I");
 
     LOG_FATAL_IF(gFieldIds.mAcOnline == NULL, "Unable to find BatteryService.AC_ONLINE_PATH");
@@ -346,6 +367,7 @@ int register_android_server_BatteryService(JNIEnv* env)
     LOG_FATAL_IF(gFieldIds.mBatteryPresent == NULL, "Unable to find BatteryService.BATTERY_PRESENT_PATH");
     LOG_FATAL_IF(gFieldIds.mBatteryLevel == NULL, "Unable to find BatteryService.BATTERY_CAPACITY_PATH");
     LOG_FATAL_IF(gFieldIds.mBatteryVoltage == NULL, "Unable to find BatteryService.BATTERY_VOLTAGE_PATH");
+    LOG_FATAL_IF(gFieldIds.mBatteryCurrent == NULL, "Unable to find BatteryService.BATTERY_CURRENT_PATH");
     LOG_FATAL_IF(gFieldIds.mBatteryTemperature == NULL, "Unable to find BatteryService.BATTERY_TEMPERATURE_PATH");
     LOG_FATAL_IF(gFieldIds.mBatteryTechnology == NULL, "Unable to find BatteryService.BATTERY_TECHNOLOGY_PATH");
     
