@@ -245,6 +245,7 @@ class PowerManagerService extends IPowerManager.Stub
     private static final boolean mDebugProximitySensor = (false && mSpew);
     private static final boolean mDebugLightSensor = (false && mSpew);
 
+    private static final String WIMM_WATCHFACE_PACKAGE_NAME = "com.wimm.watchface";
     /*
     static PrintStream mLog;
     static {
@@ -2174,7 +2175,17 @@ class PowerManagerService extends IPowerManager.Stub
      */
     public void goToSleep(long time)
     {
+        /**
+         * WIMM specific HACK:
+         * Allow goToSleep for the watchface without requiring DEVICE_POWER privilege.
+         * 
+         */
+        final PackageManager packageManager = mContext.getPackageManager();
+        final String[] packages = packageManager.getPackagesForUid(Binder.getCallingUid());
+        
+        if (packages == null || packages.length != 1 || !(packages[0].equals(WIMM_WATCHFACE_PACKAGE_NAME))) {
         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.DEVICE_POWER, null);
+        }
 
         synchronized (mLocks) {
             goToSleepLocked(time, WindowManagerPolicy.OFF_BECAUSE_OF_USER);
