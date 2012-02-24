@@ -274,6 +274,7 @@ public class PowerManagerService extends IPowerManager.Stub
     private native void nativeSetPowerState(boolean screenOn, boolean screenBright);
     private native void nativeStartSurfaceFlingerAnimation(int mode);
 
+    private static final String WIMM_WATCHFACE_PACKAGE_NAME = "com.wimm.watchface";
     /*
     static PrintStream mLog;
     static {
@@ -2653,7 +2654,18 @@ public class PowerManagerService extends IPowerManager.Stub
      */
     public void goToSleepWithReason(long time, int reason)
     {
-        mContext.enforceCallingOrSelfPermission(android.Manifest.permission.DEVICE_POWER, null);
+        /**
+         * WIMM specific HACK:
+         * Allow goToSleep for the watchface without requiring DEVICE_POWER privilege.
+         * 
+         */
+        final PackageManager packageManager = mContext.getPackageManager();
+        final String[] packages = packageManager.getPackagesForUid(Binder.getCallingUid());
+        
+        if (packages == null || packages.length != 1 || !(packages[0].equals(WIMM_WATCHFACE_PACKAGE_NAME))) {
+            mContext.enforceCallingOrSelfPermission(android.Manifest.permission.DEVICE_POWER, null);
+        }
+
         synchronized (mLocks) {
             goToSleepLocked(time, reason);
         }

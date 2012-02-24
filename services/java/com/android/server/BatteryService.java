@@ -268,13 +268,9 @@ class BatteryService extends Binder {
                 mBatteryLevel != mLastBatteryLevel ||
                 mPlugType != mLastPlugType ||
                 mBatteryVoltage != mLastBatteryVoltage ||
-<<<<<<< HEAD
+                mBatteryCurrent != mLastBatteryCurrent ||
                 mBatteryTemperature != mLastBatteryTemperature ||
                 mInvalidCharger != mLastInvalidCharger) {
-=======
-                mBatteryCurrent != mLastBatteryCurrent ||
-                mBatteryTemperature != mLastBatteryTemperature) {
->>>>>>> Merge battery current info change from WIMM master.
 
             if (mPlugType != mLastPlugType) {
                 if (mLastPlugType == BATTERY_PLUGGED_NONE) {
@@ -511,7 +507,6 @@ class BatteryService extends Binder {
             return;
         }
 
-<<<<<<< HEAD
         if (args == null || args.length == 0 || "-a".equals(args[0])) {
             synchronized (this) {
                 pw.println("Current Battery Service state:");
@@ -523,6 +518,7 @@ class BatteryService extends Binder {
                 pw.println("  level: " + mBatteryLevel);
                 pw.println("  scale: " + BATTERY_SCALE);
                 pw.println("  voltage:" + mBatteryVoltage);
+                pw.println("  current:" + mBatteryCurrent);
                 pw.println("  temperature: " + mBatteryTemperature);
                 pw.println("  technology: " + mBatteryTechnology);
             }
@@ -614,21 +610,6 @@ class BatteryService extends Binder {
                 // No lights if not charging and not low
                 mBatteryLight.turnOff();
             }
-=======
-        synchronized (this) {
-            pw.println("Current Battery Service state:");
-            pw.println("  AC powered: " + mAcOnline);
-            pw.println("  USB powered: " + mUsbOnline);
-            pw.println("  status: " + mBatteryStatus);
-            pw.println("  health: " + mBatteryHealth);
-            pw.println("  present: " + mBatteryPresent);
-            pw.println("  level: " + mBatteryLevel);
-            pw.println("  scale: " + BATTERY_SCALE);
-            pw.println("  voltage:" + mBatteryVoltage);
-            pw.println("  current:" + mBatteryCurrent);
-            pw.println("  temperature: " + mBatteryTemperature);
-            pw.println("  technology: " + mBatteryTechnology);
->>>>>>> Merge battery current info change from WIMM master.
         }
     }
 }
