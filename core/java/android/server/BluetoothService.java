@@ -487,6 +487,16 @@ public class BluetoothService extends IBluetooth.Stub {
                 case 4:
                     Log.d(TAG, "Registering pbap record");
                     SystemService.start("pbap");
+                    mHandler.sendMessageDelayed(
+                            mHandler.obtainMessage(MESSAGE_REGISTER_SDP_RECORDS, 5, -1), 500);
+                    break;
+                    
+                /* WIMM 
+                 * Start HF service in order to get audio bit in Service Class
+                 */
+                case 5:
+					Log.d(TAG, "Registering hf record");
+                    SystemService.start("hf");
                     break;
                 }
                 break;
