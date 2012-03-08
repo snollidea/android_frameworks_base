@@ -318,8 +318,12 @@ public class WifiService extends IWifiManager.Stub {
      */
     public void startWifi() {
         /* Start if Wi-Fi is enabled or the saved state indicates Wi-Fi was on */
+        /* WIMM 
+         * Let PowerService manage WiFi state at boot.
         boolean wifiEnabled = !isAirplaneModeOn()
                 && (getPersistedWifiEnabled() || testAndClearWifiSavedState());
+         */
+        boolean wifiEnabled = false;
         Slog.i(TAG, "WifiService starting up with Wi-Fi " +
                 (wifiEnabled ? "enabled" : "disabled"));
         setWifiEnabled(wifiEnabled);
