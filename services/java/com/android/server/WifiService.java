@@ -1316,7 +1316,10 @@ public class WifiService extends IWifiManager.Stub {
                     : config.enterpriseFields) {
                 String varName = field.varName();
                 String value = field.value();
-                if (value != null) {
+                // WIMM
+                // Prevent client screw-up by passing in a WifiConfiguration we gave it
+                // by preventing "*" as a key.
+                if (value != null && !value.equals("*")) {
                     if (field != config.eap) {
                         value = (value.length() == 0) ? "NULL" : convertToQuotedString(value);
                     }
