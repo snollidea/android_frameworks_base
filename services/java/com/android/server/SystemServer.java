@@ -217,11 +217,14 @@ class ServerThread extends Thread {
                 ServiceManager.addService(BluetoothA2dpService.BLUETOOTH_A2DP_SERVICE,
                                           bluetoothA2dp);
 
+                /* WIMM 
+                 * Let PowerService manage Bluetooth state at boot.
                 int bluetoothOn = Settings.Secure.getInt(mContentResolver,
                     Settings.Secure.BLUETOOTH_ON, 0);
                 if (bluetoothOn > 0) {
                     bluetooth.enable();
                 }
+                */
             }
 
         } catch (RuntimeException e) {
