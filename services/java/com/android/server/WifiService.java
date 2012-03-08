@@ -119,6 +119,10 @@ public class WifiService extends IWifiManager.Stub {
     private boolean mDeviceIdle;
     private int mPluggedType;
 
+    // WIMM NJV 20110621 - Only execute idle mode code if idle mode is allowed
+    // We're no longer going to idle mode for WiFi when screen is off
+    private static final boolean mEnableIdleMode = false;
+    
     private enum DriverAction {DRIVER_UNLOAD, NO_DRIVER_UNLOAD};
 
     // true if the user enabled Wifi while in airplane mode
@@ -1775,6 +1779,9 @@ public class WifiService extends IWifiManager.Stub {
                  * current power conditions (i.e, not plugged in, plugged in to USB,
                  * or plugged in to AC).
                  */
+                 
+                // WIMM NJV 20110621 - Only execute idle mode code if idle mode is allowed
+                if (mEnableIdleMode)  {
                 if (!shouldWifiStayAwake(stayAwakeConditions, mPluggedType)) {
                     WifiInfo info = mWifiStateTracker.requestConnectionInfo();
                     if (info.getSupplicantState() != SupplicantState.COMPLETED) {
@@ -1799,6 +1806,7 @@ public class WifiService extends IWifiManager.Stub {
                         mAlarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, mIdleIntent);
                     }
                 }
+                }
                 /* we can return now -- there's nothing to do until we get the idle intent back */
                 return;
             } else if (action.equals(ACTION_DEVICE_IDLE)) {
@@ -1819,6 +1827,9 @@ public class WifiService extends IWifiManager.Stub {
                 if (DBG) {
                     Slog.d(TAG, "ACTION_BATTERY_CHANGED pluggedType: " + pluggedType);
                 }
+                
+                // WIMM NJV 20110621 - Only execute idle mode code if idle mode is allowed
+                if (mEnableIdleMode)  {
                 if (mScreenOff && shouldWifiStayAwake(stayAwakeConditions, mPluggedType) &&
                         !shouldWifiStayAwake(stayAwakeConditions, pluggedType)) {
                     long triggerTime = System.currentTimeMillis() + idleMillis;
@@ -1828,6 +1839,7 @@ public class WifiService extends IWifiManager.Stub {
                     mAlarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, mIdleIntent);
                     mPluggedType = pluggedType;
                     return;
+                }
                 }
                 mPluggedType = pluggedType;
             } else if (action.equals(BluetoothA2dp.ACTION_SINK_STATE_CHANGED)) {
