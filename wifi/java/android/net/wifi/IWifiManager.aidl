@@ -89,11 +89,5 @@ interface IWifiManager
     WifiConfiguration getWifiApConfiguration();
 
     void setWifiApConfiguration(in WifiConfiguration wifiConfig);
-
-    boolean startWps(int wpsMethod, String wpsBssid, String wpsPin);
-
-    boolean stopWps();
-
-    int getWpsState();
 }
 

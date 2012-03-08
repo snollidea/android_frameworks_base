@@ -525,35 +525,7 @@ static jstring android_net_wifi_getDhcpError(JNIEnv* env, jobject clazz)
 {
     return env->NewStringUTF(::get_dhcp_error_string());
 }
-static jboolean android_net_wifi_wpsPbcCommand(JNIEnv* env, jobject clazz)
-{
-    return doBooleanCommand("WPS_PBC", "OK");
-}
 
-static jboolean android_net_wifi_wpsPinCommand(JNIEnv* env, jobject clazz, jstring bssid, jstring pin)
-{
-    char cmdstr[256];
-    jboolean isCopy;
-
-    const char *bssidStr = env->GetStringUTFChars(bssid, &isCopy);
-    const char *pinStr = env->GetStringUTFChars(pin, &isCopy);
-
-    if (bssidStr == NULL || pinStr == NULL)
-        return JNI_FALSE;
-
-    int cmdTooLong = snprintf(cmdstr, sizeof(cmdstr), "WPS_PIN %s %s",
-                 bssidStr, pinStr) >= (int)sizeof(cmdstr);
-
-    env->ReleaseStringUTFChars(bssid, bssidStr);
-    env->ReleaseStringUTFChars(pin, pinStr);
-
-    return (jboolean)!cmdTooLong && doBooleanCommand(cmdstr, "OK");
-}
-
-static jboolean android_net_wifi_stopWpsCommand(JNIEnv* env, jobject clazz)
-{
-    return doBooleanCommand("STOP_WPS", "OK");
-}
 // ----------------------------------------------------------------------------
 
 /*
@@ -614,9 +586,6 @@ static JNINativeMethod gWifiMethods[] = {
 
     { "doDhcpRequest", "(Landroid/net/DhcpInfo;)Z", (void*) android_net_wifi_doDhcpRequest },
     { "getDhcpError", "()Ljava/lang/String;", (void*) android_net_wifi_getDhcpError },
-    { "startWpsPbcCommand", "()Z", (void*) android_net_wifi_wpsPbcCommand },
-    { "startWpsPinCommand", "(Ljava/lang/String;Ljava/lang/String;)Z", (void*) android_net_wifi_wpsPinCommand },
-    { "stopWpsCommand", "()Z", (void*) android_net_wifi_stopWpsCommand },
 };
 
 int register_android_net_wifi_WifiManager(JNIEnv* env)
