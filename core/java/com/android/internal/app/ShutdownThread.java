@@ -144,6 +144,7 @@ public final class ShutdownThread extends Thread {
             sIsStarted = true;
         }
 
+        /* WIMM
         // throw up an indeterminate system dialog to indicate radio is
         // shutting down.
         ProgressDialog pd = new ProgressDialog(context);
@@ -158,7 +159,8 @@ public final class ShutdownThread extends Thread {
         }
 
         pd.show();
-
+        */
+        
         // start the thread that initiates shutdown
         sInstance.mContext = context;
         sInstance.mPowerManager = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
