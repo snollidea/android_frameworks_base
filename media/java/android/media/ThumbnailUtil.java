@@ -359,8 +359,14 @@ public class ThumbnailUtil {
             * as possible into the target and leaving the top/bottom or
             * left/right (or both) black.
             */
-            Bitmap b2 = Bitmap.createBitmap(targetWidth, targetHeight,
-            Bitmap.Config.ARGB_8888);
+            // WIMM #821
+            Bitmap b2;
+            try {
+                b2 = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888);
+            } catch (OutOfMemoryError e) {
+                Log.e(TAG, "transform out of memory at createBitmap #1", e);
+                return source;
+            }
             Canvas c = new Canvas(b2);
 
             int deltaXHalf = Math.max(0, deltaX / 2);
@@ -407,9 +413,14 @@ public class ThumbnailUtil {
 
         Bitmap b1;
         if (scaler != null) {
+            // WIMM #821
+            try {
             // this is used for minithumb and crop, so we want to filter here.
-            b1 = Bitmap.createBitmap(source, 0, 0,
-            source.getWidth(), source.getHeight(), scaler, true);
+                b1 = Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), scaler, true);
+            } catch (OutOfMemoryError e) {
+                Log.e(TAG, "transform out of memory at createBitmap #2", e);
+                return source;
+            }
         } else {
             b1 = source;
         }
@@ -421,12 +432,19 @@ public class ThumbnailUtil {
         int dx1 = Math.max(0, b1.getWidth() - targetWidth);
         int dy1 = Math.max(0, b1.getHeight() - targetHeight);
 
-        Bitmap b2 = Bitmap.createBitmap(
+        // WIMM #821
+        Bitmap b2;
+        try {
+            b2 = Bitmap.createBitmap(
                 b1,
                 dx1 / 2,
                 dy1 / 2,
                 targetWidth,
                 targetHeight);
+        } catch (OutOfMemoryError e) {
+            Log.e(TAG, "transform out of memory at createBitmap #3", e);
+            return b1;
+        }
 
         if (b2 != b1) {
             if (recycle || b1 != source) {
