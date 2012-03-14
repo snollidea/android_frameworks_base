@@ -7779,6 +7779,7 @@ public class WindowManagerService extends IWindowManager.Stub
         public static final int APP_FREEZE_TIMEOUT = 17;
         public static final int SEND_NEW_CONFIGURATION = 18;
         public static final int REPORT_WINDOWS_CHANGE = 19;
+        public static final int APP_TRANSITION_END = 69;
 
         private Session mLastReportedHold;
 
@@ -8121,6 +8122,14 @@ public class WindowManagerService extends IWindowManager.Stub
                     break;
                 }
 
+                // WIMM: Added to fix #1110
+                case APP_TRANSITION_END: {
+                    if (DEBUG_APP_TRANSITIONS) Log.v(TAG, "Sending app transition end broadcast");
+                    android.content.Intent intent = 
+                            new android.content.Intent("com.wimm.launcherapp.action.APP_TRANSITION_END");
+                    mContext.sendBroadcast(intent);
+                    break;
+                }
             }
         }
     }
@@ -8466,6 +8475,7 @@ public class WindowManagerService extends IWindowManager.Stub
         final long currentTime = SystemClock.uptimeMillis();
         final int dw = mDisplay.getWidth();
         final int dh = mDisplay.getHeight();
+        boolean isAppTransition = false;
 
         int i;
 
@@ -8776,6 +8786,7 @@ public class WindowManagerService extends IWindowManager.Stub
                     }
                     if (goodToGo) {
                         if (DEBUG_APP_TRANSITIONS) Slog.v(TAG, "**** GOOD TO GO");
+                        isAppTransition = true;
                         int transit = mNextAppTransition;
                         if (mSkipAppTransitionAnimation) {
                             transit = WindowManagerPolicy.TRANSIT_UNSET;
@@ -9693,6 +9704,10 @@ public class WindowManagerService extends IWindowManager.Stub
         // Check to see if we are now in a state where the screen should
         // be enabled, because the window obscured flags have changed.
         enableScreenIfNeededLocked();
+
+        if (isAppTransition) {
+            mH.sendEmptyMessage(H.APP_TRANSITION_END);
+        }
     }
     
     /**
