@@ -1613,6 +1613,14 @@ public final class ActivityManagerService extends ActivityManagerNative
         if (mFocusedActivity != r) {
             mFocusedActivity = r;
             mWindowManager.setFocusedApp(r, true);
+
+            // WIMM
+            Intent intent = new Intent(Intent.ACTION_ACTIVITY_CHANGED);
+            intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
+            intent.putExtra(Intent.EXTRA_ACTIVITY_COMPONENT, r.realActivity);
+            broadcastIntentLocked(null, null, intent,
+            null, null, 0, null, null, null,
+            true, false, MY_PID, Process.SYSTEM_UID);
         }
     }
 
