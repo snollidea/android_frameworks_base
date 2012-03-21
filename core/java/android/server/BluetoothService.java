@@ -205,8 +205,12 @@ public class BluetoothService extends IBluetooth.Stub {
         mA2dpProfileState.start();
 
         IntentFilter filter = new IntentFilter();
+        
+        /* WIMM 
+         * Let PowerService manage airplane mode.
         registerForAirplaneMode(filter);
-
+         */
+         
         filter.addAction(Intent.ACTION_DOCK_EVENT);
         mContext.registerReceiver(mReceiver, filter);
     }

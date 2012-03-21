@@ -275,6 +275,8 @@ public class WifiService extends IWifiManager.Stub {
         sWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG);
         sDriverStopWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG);
 
+        /* WIMM 
+         * Let PowerService manage airplane mode.
         mContext.registerReceiver(
                 new BroadcastReceiver() {
                     @Override
@@ -289,6 +291,7 @@ public class WifiService extends IWifiManager.Stub {
                     }
                 },
                 new IntentFilter(Intent.ACTION_AIRPLANE_MODE_CHANGED));
+         */
 
         mContext.registerReceiver(
             new BroadcastReceiver() {
