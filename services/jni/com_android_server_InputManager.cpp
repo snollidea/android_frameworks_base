@@ -895,7 +895,9 @@ void NativeInputManager::interceptKeyBeforeQueueing(nsecs_t when,
         }
 
         if (wmActions & WM_ACTION_GO_TO_SLEEP) {
-            android_server_PowerManagerService_goToSleep(when);
+            // Fix 2335, don't allow power key to suspend device.  Should be fix in intercept routine
+            // that sets WM_ACTION_GO_TO_SLEEP for this wmActions, but changing didn't effect this ??
+            //android_server_PowerManagerService_goToSleep(when);
         }
 
         if (wmActions & WM_ACTION_POKE_USER_ACTIVITY) {
