@@ -99,7 +99,7 @@ class PowerManagerService extends IPowerManager.Stub
     private static final int SHORT_KEYLIGHT_DELAY_DEFAULT = 6000; // t+6 sec
     private static final int MEDIUM_KEYLIGHT_DELAY = 15000;       // t+15 sec
     private static final int LONG_KEYLIGHT_DELAY = 6000;        // t+6 sec
-    private static final int LONG_DIM_TIME = 3000;              // t+N-3 sec
+    private static final int LONG_DIM_TIME = 6000;              // t+N-6 sec
 
     // How long to wait to debounce light sensor changes.
     private static final int LIGHT_SENSOR_DELAY = 2000;
@@ -113,8 +113,8 @@ class PowerManagerService extends IPowerManager.Stub
     // Cached secure settings; see updateSettingsValues()
     private int mShortKeylightDelay = SHORT_KEYLIGHT_DELAY_DEFAULT;
 
-    // Default timeout for screen off, if not found in settings database = 15 seconds.
-    private static final int DEFAULT_SCREEN_OFF_TIMEOUT = 15000;
+    // Default timeout for screen off, if not found in settings database = 16 seconds.
+    private static final int DEFAULT_SCREEN_OFF_TIMEOUT = 16000;
 
     // flags for setPowerState
     private static final int SCREEN_ON_BIT          = 0x00000001;
@@ -1860,16 +1860,6 @@ class PowerManagerService extends IPowerManager.Stub
     private boolean batteryIsLow() {
         return (!mIsPowered &&
                 mBatteryService.getBatteryLevel() <= Power.LOW_BATTERY_THRESHOLD);
-    }
-
-    // WIMM private
-    public boolean isPluggedIn() {
-        return mIsPowered;
-    }
-    
-    // WIMM private
-    public boolean isBatteryLow() {
-        return batteryIsLow();
     }
 
     private void updateLightsLocked(int newState, int forceState) {
