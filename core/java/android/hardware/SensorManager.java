@@ -1016,7 +1016,7 @@ public class SensorManager
         /* 
          * WIMM: Don't enable sensors in low power mode
          */
-        if (android.os.SystemProperties.get("hw.sensors.suspended","0").equals("1")) {
+        if (android.os.SystemProperties.get("hw.suspend","0").equals("1")) {
             Log.w(TAG, "suspended for low power (sensor=" 
                 + sensor.getName() + ", id=" + sensor.getHandle() + ")");
             return false;

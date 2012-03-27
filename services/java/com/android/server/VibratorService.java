@@ -29,6 +29,7 @@ import android.os.RemoteException;
 import android.os.IBinder;
 import android.os.Binder;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.WorkSource;
 import android.util.Slog;
 
@@ -117,6 +118,15 @@ public class VibratorService extends IVibratorService.Stub {
                 != PackageManager.PERMISSION_GRANTED) {
             throw new SecurityException("Requires VIBRATE permission");
         }
+        
+        /* 
+         * WIMM: Don't vibrate in low power mode
+         */
+        if ( SystemProperties.get("hw.suspend","0").equals("1") ) {
+            Slog.i(TAG, "Suspended for low power. Ignoring vibrate.");
+            return;
+        }
+        
         int uid = Binder.getCallingUid();
         // We're running in the system server so we cannot crash. Check for a
         // timeout of 0 or negative. This will ensure that a vibration has
@@ -151,6 +161,15 @@ public class VibratorService extends IVibratorService.Stub {
                 != PackageManager.PERMISSION_GRANTED) {
             throw new SecurityException("Requires VIBRATE permission");
         }
+        
+        /* 
+         * WIMM: Don't vibrate in low power mode
+         */
+        if ( SystemProperties.get("hw.suspend","0").equals("1") ) {
+            Slog.i(TAG, "Suspended for low power. Ignoring vibrate.");
+            return;
+        }
+        
         int uid = Binder.getCallingUid();
         // so wakelock calls will succeed
         long identity = Binder.clearCallingIdentity();
