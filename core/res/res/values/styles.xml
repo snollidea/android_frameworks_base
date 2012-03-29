@@ -54,6 +54,7 @@
     
     <!-- Standard animations for a full-screen window or activity. -->
     <style name="Animation.Activity">
+        <!-- Right now we don't want any of these animations. I suspect this will change...
         <item name="activityOpenEnterAnimation">@anim/activity_open_enter</item>
         <item name="activityOpenExitAnimation">@anim/activity_open_exit</item>
         <item name="activityCloseEnterAnimation">@anim/activity_close_enter</item>
@@ -74,6 +75,27 @@
         <item name="wallpaperIntraOpenExitAnimation">@anim/wallpaper_intra_open_exit</item>
         <item name="wallpaperIntraCloseEnterAnimation">@anim/wallpaper_intra_close_enter</item>
         <item name="wallpaperIntraCloseExitAnimation">@anim/wallpaper_intra_close_exit</item>
+        -->
+        <item name="activityOpenEnterAnimation">@null</item>
+        <item name="activityOpenExitAnimation">@null</item>
+        <item name="activityCloseEnterAnimation">@null</item>
+        <item name="activityCloseExitAnimation">@null</item>
+        <item name="taskOpenEnterAnimation">@null</item>
+        <item name="taskOpenExitAnimation">@null</item>
+        <item name="taskCloseEnterAnimation">@null</item>
+        <item name="taskCloseExitAnimation">@null</item>
+        <item name="taskToFrontEnterAnimation">@null</item>
+        <item name="taskToFrontExitAnimation">@null</item>
+        <item name="taskToBackEnterAnimation">@null</item>
+        <item name="taskToBackExitAnimation">@null</item>
+        <item name="wallpaperOpenEnterAnimation">@null</item>
+        <item name="wallpaperOpenExitAnimation">@null</item>
+        <item name="wallpaperCloseEnterAnimation">@null</item>
+        <item name="wallpaperCloseExitAnimation">@null</item>
+        <item name="wallpaperIntraOpenEnterAnimation">@null</item>
+        <item name="wallpaperIntraOpenExitAnimation">@null</item>
+        <item name="wallpaperIntraCloseEnterAnimation">@null</item>
+        <item name="wallpaperIntraCloseExitAnimation">@null</item>
     </style>
 
     <!-- Standard animations for a non-full-screen window or activity. -->

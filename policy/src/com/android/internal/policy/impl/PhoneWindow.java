@@ -2165,6 +2165,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
 
         int layoutResource;
         int features = getLocalFeatures();
+        /*
         // System.out.println("Features: 0x" + Integer.toHexString(features));
         if ((features & ((1 << FEATURE_LEFT_ICON) | (1 << FEATURE_RIGHT_ICON))) != 0) {
             if (mIsFloating) {
@@ -2200,6 +2201,10 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             layoutResource = com.android.internal.R.layout.screen_simple;
             // System.out.println("Simple!");
         }
+        */
+
+        // WIMM added - always force a simple screen layout.
+        layoutResource = com.android.internal.R.layout.screen_simple;
 
         mDecor.startChanging();
 

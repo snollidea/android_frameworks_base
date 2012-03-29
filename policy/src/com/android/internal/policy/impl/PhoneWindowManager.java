@@ -130,6 +130,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     static final boolean SHOW_PROCESSES_ON_ALT_MENU = false;
     
     // wallpaper is at the bottom, though the window manager may move it.
+    // TODO: We used to have wallpaper lower than app. important?
     static final int WALLPAPER_LAYER = 2;
     static final int APPLICATION_LAYER = 2;
     static final int PHONE_LAYER = 3;
@@ -356,6 +357,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     MyOrientationListener mOrientationListener;
 
     boolean useSensorForOrientationLp(int appOrientation) {
+    /* WIMM - We don't want orientation support at the moment.
         // The app says use the sensor.
         if (appOrientation == ActivityInfo.SCREEN_ORIENTATION_SENSOR
                 || appOrientation == ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
@@ -379,6 +381,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 return true;
             }
         }
+        */
         // Else, don't use the sensor.
         return false;
     }
@@ -389,6 +392,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
      * screen is switched off.
      */
     boolean needSensorRunningLp() {
+    /*
         if (mCurrentAppOrientation == ActivityInfo.SCREEN_ORIENTATION_SENSOR
                 || mCurrentAppOrientation == ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
                 || mCurrentAppOrientation == ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
@@ -415,6 +419,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             return false;
         }
         return true;
+        */
+        // WIMM - We don't want orientation support at the moment.
+        return false;
     }
     
     /*
@@ -487,10 +494,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     void showGlobalActionsDialog() {
         if (mGlobalActions == null) {
-            mGlobalActions = new GlobalActions(mContext);
+            mGlobalActions = new GlobalActions(mContext, mPowerManager);
         }
         final boolean keyguardShowing = mKeyguardMediator.isShowingAndNotHidden();
-        mGlobalActions.showDialog(keyguardShowing, isDeviceProvisioned());
+        mGlobalActions.showDialog();
         if (keyguardShowing) {
             // since it took two seconds of long press to bring this up,
             // poke the wake lock so they have some time to see the dialog.
@@ -2049,7 +2056,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     public int rotationForOrientationLw(int orientation, int lastRotation,
             boolean displayEnabled) {
+        // WIMM - We don't want orientation support at the moment.
+        return Surface.ROTATION_0;
 
+/*
         if (mPortraitRotation < 0) {
             // Initialize the rotation angles for each orientation once.
             Display d = ((WindowManager)mContext.getSystemService(Context.WINDOW_SERVICE))
@@ -2111,6 +2121,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 return Surface.ROTATION_0;
             }
         }
+*/
     }
 
     private int getCurrentLandscapeRotation(int lastRotation) {

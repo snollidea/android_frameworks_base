@@ -26,7 +26,11 @@ import android.view.LayoutInflater;
 public class PhoneLayoutInflater extends LayoutInflater {
     private static final String[] sClassPrefixList = {
         "android.widget.",
-        "android.webkit."
+        "android.webkit.",
+        // TODO: Is this com.wimm import necessary? Seems to be working fine
+        //       without but erring somewhat on the conservative side for
+        //       the big move from a separate wimm policy. Revisit.
+        "com.wimm."
     };
     
     /**
