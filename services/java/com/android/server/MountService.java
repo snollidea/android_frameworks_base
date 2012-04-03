@@ -45,6 +45,7 @@ import android.os.storage.IMountShutdownObserver;
 import android.os.storage.IObbActionListener;
 import android.os.storage.OnObbStateChangeListener;
 import android.os.storage.StorageResultCode;
+import android.provider.Settings;
 import android.util.Slog;
 
 import java.io.FileDescriptor;
@@ -439,6 +440,13 @@ class MountService extends IMountService.Stub
                     notifyVolumeStateChange(null, "/sdcard", VolumeState.NoMedia, VolumeState.Mounted);
                     return;
                 }
+
+                // WIMM: If the USB_MASS_STORAGE_ENABLED flag is set we will enable it.
+                final boolean enableMassStorage =
+                    (Settings.Secure.getInt(
+                            context.getContentResolver(),
+                            Settings.Secure.USB_MASS_STORAGE_ENABLED, 0) != 0);
+
                 new Thread() {
                     public void run() {
                         try {
@@ -466,6 +474,9 @@ class MountService extends IMountService.Stub
                                 sendUmsIntent(true);
                                 mSendUmsConnectedOnBoot = false;
                             }
+
+                            // WIMM added.
+                            setUsbMassStorageEnabled(enableMassStorage);
                         } catch (Exception ex) {
                             Slog.e(TAG, "Boot-time mount exception", ex);
                         }
