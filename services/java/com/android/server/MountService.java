@@ -1155,6 +1155,14 @@ class MountService extends IMountService.Stub
             // Post a unmount message.
             ShutdownCallBack ucb = new ShutdownCallBack(path, observer);
             mHandler.sendMessage(mHandler.obtainMessage(H_UNMOUNT_PM_UPDATE, ucb));
+        } else {
+            if (observer != null) {
+                try {
+                    observer.onShutDownComplete(0);
+                } catch (RemoteException e) {
+                    Slog.w(TAG, "RemoteException when shutting down");
+                }
+            }
         }
     }
 
