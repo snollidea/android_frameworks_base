@@ -78,6 +78,7 @@ import java.util.Observer;
 
 class PowerManagerService extends IPowerManager.Stub
         implements LocalPowerManager, Watchdog.Monitor {
+    private boolean mDidDim = false;
 
     private static final String TAG = "PowerManagerService";
     static final String PARTIAL_NAME = "PowerManagerService";
@@ -100,6 +101,8 @@ class PowerManagerService extends IPowerManager.Stub
     private static final int MEDIUM_KEYLIGHT_DELAY = 15000;       // t+15 sec
     private static final int LONG_KEYLIGHT_DELAY = 6000;        // t+6 sec
     private static final int LONG_DIM_TIME = 6000;              // t+N-6 sec
+
+    private static final int MIN_MS_BETWEEN_DIM_AND_OFF = 1000;
 
     // How long to wait to debounce light sensor changes.
     private static final int LIGHT_SENSOR_DELAY = 2000;
@@ -960,22 +963,7 @@ class PowerManagerService extends IPowerManager.Stub
                 if ((wl.flags & PowerManager.ON_AFTER_RELEASE) != 0) {
                     userActivity(SystemClock.uptimeMillis(), -1, false, OTHER_EVENT, false);
                 }
-            /* --- start WIMM dim notification --- 
-             * If someone holds a wake lock that does not have the ON_AFTER_RELEASE flag set
-             * and that wake lock is released after user activity has timed out, then we will
-             * not send out a SCREEN_DIM notification, and the device will enter passive mode
-             * before the watchface comes down.
-             * This work-around tickles the user activity timer if the ON_AFTER_RELEASE flag
-             * is NOT set so that we have time to send out the SCREEN_DIM notification.  
-             * However, we pass in an event time that is in the past so that we immediately
-             * go to our dim screen notification instead of waiting for user activity to 
-             * timeout.
-             */
-            else {
-                Log.w(TAG, "releaseWakeLockLocked~ force tickle user activity: state=" + (mWakeLockState | mUserState));
-                userActivity(SystemClock.uptimeMillis()-mKeylightDelay, false);
-            }
-            // --- end WIMM dim notification --- //
+
                 setPowerState(mWakeLockState | mUserState);
             }
         }
@@ -1398,6 +1386,7 @@ class PowerManagerService extends IPowerManager.Stub
                 
                 // --- start WIMM dim notification --- //
                 if (value == SCREEN_DIM) {
+                    mDidDim = true;
                     mScreenDimStart = SystemClock.uptimeMillis();
                     
                     if (mSpew) {
@@ -1416,6 +1405,7 @@ class PowerManagerService extends IPowerManager.Stub
                 }
                 // --- end WIMM dim notification --- //
                 else if (value == SCREEN_BRIGHT) {
+                    mDidDim = false;
                     mScreenOnStart = SystemClock.uptimeMillis();
 
                     policy.screenTurnedOn();
@@ -1746,6 +1736,16 @@ class PowerManagerService extends IPowerManager.Stub
             }
 
             if (mPowerState != newState) {
+                if (!newScreenOn && !mDidDim) {
+                    // WIMM
+                    // We depend on a SCREEN_DIM notification being sent to bring down
+                    // the watch face before entering passive mode. If a SCREEN_OFF state
+                    // has been requested before we ever moved to dim we will instead
+                    // immediately swithc to dim and queue screen off.
+                    setPowerState(SCREEN_DIM, noChangeLights, reason);
+                    setTimeoutLocked(SystemClock.uptimeMillis(), MIN_MS_BETWEEN_DIM_AND_OFF, SCREEN_OFF);
+                    return;
+                }
                 updateLightsLocked(newState, 0);
                 mPowerState = (mPowerState & ~LIGHTS_MASK) | (newState & LIGHTS_MASK);
             }
