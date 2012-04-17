@@ -942,6 +942,14 @@ public class ThrottleService extends IThrottleManager.Stub {
             File[] files = dir.listFiles();
 
             for (File f : files) {
+                /* WIMM
+                 * Despite the fact that this code appears to default to using a "temp" file,
+                 * ThrottleService will create a nameless directory in "/data/system/throttle".
+                 * This seems to confuse "listFiles", which will return "/data/system/throttle" as a 
+                 * descendant of "/data/system/throttle"!!!
+                 */
+                if (f.isDirectory()) continue;
+                
                 if ((newest == null) || (newest.lastModified() < f.lastModified())) {
                     newest = f;
                 }
