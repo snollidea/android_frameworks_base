@@ -305,8 +305,10 @@ public final class MotionEvent extends InputEvent implements Parcelable {
     /*
      * Minimum number of pointers for which to reserve space when allocating new
      * motion events.  This is explicitly not a bound on the maximum number of pointers.
+	 * @hide
+	 *
      */
-    static private final int BASE_AVAIL_POINTERS = 5;
+    static public final int BASE_AVAIL_POINTERS = 5;
     
     /*
      * Minimum number of samples for which to reserve space when allocating new motion events.
