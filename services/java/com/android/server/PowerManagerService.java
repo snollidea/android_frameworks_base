@@ -264,6 +264,10 @@ class PowerManagerService extends IPowerManager.Stub
     private static final boolean mSpew = false;
     private static final boolean mDebugProximitySensor = (false || mSpew);
     private static final boolean mDebugLightSensor = (false || mSpew);
+
+    // WIMM
+    private boolean mForcedSleep = false;
+    private boolean mForcedDim = false;
     
     private native void nativeInit();
     private native void nativeSetPowerState(boolean screenOn, boolean screenBright);
@@ -1464,9 +1468,20 @@ class PowerManagerService extends IPowerManager.Stub
     private BroadcastReceiver mScreenDimBroadcastDone = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             if (mSpew) Log.d(TAG, "ScreenDimBroadcastDone");
-            
-            // ensure that watchface has enough time to come down after we post a DIM intent
-            setTimeoutLocked(SystemClock.uptimeMillis(), SCREEN_OFF);
+
+            int timeoutOverride = -1;
+            // NOTE: Normally we want to allow the timeout to occur as normal. However, if
+            // we explicitly inserted a dim state we need to adjust the timeout to something
+            // much shorter or nonexistant, depending on the circumstance.
+            // TODO: Do we actually want these as separate values? And in the mForcedSleep case
+            // (two finger pull down) when timeout override is 1 do we always get screen
+            // updates? I haven't been able to trap it with wrong assets yet but not sure what
+            // existing mechanism would be guaranteeing this is always true.
+            if (mForcedDim) timeoutOverride = MIN_MS_BETWEEN_DIM_AND_OFF;
+            if (mForcedSleep) timeoutOverride = 1;
+            setTimeoutLocked(SystemClock.uptimeMillis(), timeoutOverride, SCREEN_OFF);
+
+            mForcedDim = mForcedSleep = false;
             
             synchronized (mLocks) {
                 EventLog.writeEvent(EventLogTags.POWER_SCREEN_BROADCAST_DONE, 2,
@@ -1741,11 +1756,13 @@ class PowerManagerService extends IPowerManager.Stub
                     // We depend on a SCREEN_DIM notification being sent to bring down
                     // the watch face before entering passive mode. If a SCREEN_OFF state
                     // has been requested before we ever moved to dim we will instead
-                    // immediately swithc to dim and queue screen off.
+                    // immediately switch to dim. The normal dim process will ensure that
+                    // SCREEN_OFF is queued, the mForcedDim flag will adjust the timeout.
+                    mForcedDim = true;
                     setPowerState(SCREEN_DIM, noChangeLights, reason);
-                    setTimeoutLocked(SystemClock.uptimeMillis(), MIN_MS_BETWEEN_DIM_AND_OFF, SCREEN_OFF);
                     return;
                 }
+
                 updateLightsLocked(newState, 0);
                 mPowerState = (mPowerState & ~LIGHTS_MASK) | (newState & LIGHTS_MASK);
             }
@@ -2565,8 +2582,8 @@ class PowerManagerService extends IPowerManager.Stub
     }
 
     private void goToSleepLocked(long time, int reason) {
-
         if (mLastEventTime <= time) {
+            mForcedSleep = true;
             mLastEventTime = time;
             // cancel all of the wake locks
             mWakeLockState = SCREEN_OFF;
