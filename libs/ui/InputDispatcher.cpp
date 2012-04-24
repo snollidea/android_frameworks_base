@@ -810,7 +810,10 @@ bool InputDispatcher::dispatchMotionLocked(
                                     const InputWindow* window = & mWindows.editItemAt(i);
                                     if ((window->inputChannel->getSendPipeFd() == targetFd) &&
                                             (window->layoutParamsType == InputWindow::TYPE_PRIORITY_PHONE)) {
+                                        injectionResult = INPUT_EVENT_INJECTION_PENDING;
                                         mHijackingMotionStream = false;
+                                        mTrackingMotionStream = false;
+                                        mCanHijackMotionStream = false;
                                         break;
                                     }
                                 }
