@@ -447,6 +447,16 @@ public:
     virtual status_t unregisterInputChannel(const sp<InputChannel>& inputChannel);
 
 private:
+    // Begin WIMM added.
+    static const int32_t ABS_MOVEMENT_THRESH = 8;
+
+    bool mHijackingMotionStream;
+    bool mTrackingMotionStream;
+    bool mCanHijackMotionStream;
+    int32_t mPointerOneOriginY;
+    int32_t mPointerTwoOriginY;
+    // End WIMM added.
+
     template <typename T>
     struct Link {
         T* next;

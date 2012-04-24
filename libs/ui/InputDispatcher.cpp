@@ -169,6 +169,9 @@ InputDispatcher::InputDispatcher(const sp<InputDispatcherPolicyInterface>& polic
     mDispatchEnabled(true), mDispatchFrozen(false),
     mFocusedWindow(NULL),
     mFocusedApplication(NULL),
+    mHijackingMotionStream(false),
+    mTrackingMotionStream(false),
+    mCanHijackMotionStream(true),
     mCurrentInputTargetsValid(false),
     mInputTargetWaitCause(INPUT_TARGET_WAIT_CAUSE_NONE) {
     mLooper = new Looper(false);
@@ -737,11 +740,152 @@ bool InputDispatcher::dispatchMotionLocked(
 
     // Identify targets.
     if (! mCurrentInputTargetsValid) {
-        int32_t injectionResult;
+        int32_t injectionResult = INPUT_EVENT_INJECTION_PENDING;
         if (isPointerEvent) {
+            // Begin WIMM added.
+
+            // Retrieve the action of the motion event.
+            int32_t maskedAction = entry->action & AMOTION_EVENT_ACTION_MASK;
+
+            // ACTION_DOWN only occurs for the first pointer. Use this
+            // opportunity to ensure we are in a sane reset state.
+            if (maskedAction == AMOTION_EVENT_ACTION_DOWN) {
+                mHijackingMotionStream = false;
+                mTrackingMotionStream = false;
+                mCanHijackMotionStream = true;
+            }
+
+            // If we can track and we aren't, see if we should.
+            if (mCanHijackMotionStream && !mTrackingMotionStream &&
+                    !mHijackingMotionStream) {
+                // If this is an event for second pointer down then begin
+                // begin tracking motion for a two finger drag.
+                if (maskedAction == AMOTION_EVENT_ACTION_POINTER_DOWN) {
+                    mTrackingMotionStream = true;
+                    mPointerOneOriginY = entry->lastSample->pointerCoords[0].y;
+                    mPointerTwoOriginY = entry->lastSample->pointerCoords[1].y;
+                }
+            }
+
+            // If tracking check for hijack conditions to be met or violated.
+            if (mTrackingMotionStream) {
+                // If we have more than two pointers on the screen
+                // two finger pulldown is no longer an option.
+                if (entry->pointerCount > 2) {
+                    mCanHijackMotionStream = false;
+                    mTrackingMotionStream = false;
+                }
+
+                else {
+                    int32_t pointerOneCurrentY = entry->lastSample->pointerCoords[0].y;
+                    int32_t pointerTwoCurrentY = entry->lastSample->pointerCoords[1].y;
+                    int32_t pointerOneDiff = mPointerOneOriginY-pointerOneCurrentY;
+                    int32_t pointerTwoDiff = mPointerTwoOriginY-pointerTwoCurrentY;
+
+                    // If either pointer moves "up" ABS_MOVEMENT_THRESH it is
+                    // not a pulldown event and we will not hijack the stream.
+                    if (pointerOneDiff >= ABS_MOVEMENT_THRESH ||
+                            pointerTwoDiff >= ABS_MOVEMENT_THRESH) {
+                        mTrackingMotionStream = false;
+                        mCanHijackMotionStream = false;
+                    } else if (pointerOneDiff <= -ABS_MOVEMENT_THRESH &&
+                            pointerTwoDiff <= -ABS_MOVEMENT_THRESH) {
+                        // If both fingers have moved down the requisite amount
+                        // then we will hijack the stream and route events to
+                        // the watchface until the stream ends.
+                        mHijackingMotionStream = true;
+                        mTrackingMotionStream = false;
+                        mCanHijackMotionStream = false;
+
+                        // If we're going to hijack the stream we need to send a cancel event to the
+                        // previous target, ONLY if the that was not actually the watchface already...
+                        injectionResult = findTouchedWindowTargetsLocked(currentTime, entry, nextWakeupTime);
+                        if (injectionResult == INPUT_EVENT_INJECTION_SUCCEEDED) {
+                            // Check if the target is the watchface. If so, great! We don't
+                            // actually have to do anything, so we'll go ahead and set
+                            // hijacking to false and just let android do as it desires.
+                            if (mCurrentInputTargets.size() == 1) {
+                                int32_t targetFd = mCurrentInputTargets[0].inputChannel->getSendPipeFd();
+                                for (size_t i = 0; i < mWindows.size(); i++) {
+                                    const InputWindow* window = & mWindows.editItemAt(i);
+                                    if ((window->inputChannel->getSendPipeFd() == targetFd) &&
+                                            (window->layoutParamsType == InputWindow::TYPE_PRIORITY_PHONE)) {
+                                        mHijackingMotionStream = false;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // If the target was not already the watchface we need to play
+                            // nice and send a cancel event to the previous target so it
+                            // doesn't get stuck in some odd state.
+                            if (mHijackingMotionStream) {
+                                setInjectionResultLocked(entry, injectionResult);
+                                addMonitoringTargetsLocked();
+                                commitTargetsLocked();
+
+                                MotionEntry* cancelEntry = mAllocator.obtainMotionEntry(
+                                        entry->eventTime,
+                                        entry->deviceId,
+                                        entry->source,
+                                        entry->policyFlags,
+                                        AMOTION_EVENT_ACTION_CANCEL,
+                                        entry->flags,
+                                        entry->metaState,
+                                        entry->edgeFlags,
+                                        entry->xPrecision,
+                                        entry->yPrecision,
+                                        entry->downTime,
+                                        entry->pointerCount,
+                                        entry->pointerIds,
+                                        entry->firstSample.pointerCoords);
+                                dispatchEventToCurrentInputTargetsLocked(currentTime, cancelEntry, false);
+                            }
+
+                        }
+                        // Clear the window targets we set by calling findTouchedWindowTargetsLocked.
+                        mCurrentInputTargets.clear();
+                    }
+                }
+            }
+
+            if (mHijackingMotionStream) {
+                // Once we start hijacking the motion stream we will continue
+                // pushing events to the watchface and let it decide how to
+                // respond. We will never abort and begin routing back to the
+                // previous target.
+
+                // NOTE: If we can't find the watchface for some reason we will
+                // allow the motion handling to fall through. Might want to eat
+                // anyway? I'm not entirely sure. This is a catestrophic
+                // scenario anyway, so whether events are given to a default
+                // target or not is likely the least of our worries.
+
+                // If we can find the watchface window set it as the target and
+                // update injectionResult to succeeded.
+                for (size_t i = 0; i < mWindows.size(); i++) {
+                    const InputWindow* window = & mWindows.editItemAt(i);
+                    int32_t flags = window->layoutParamsType;
+                    if (flags == InputWindow::TYPE_PRIORITY_PHONE) {
+                        BitSet32 pointerIds;
+                        for (uint32_t k = 0; k < entry->pointerCount; k++) {
+                            uint32_t pointerId = entry->pointerIds[k];
+                            pointerIds.markBit(pointerId);
+                        }
+
+                        addWindowTargetLocked(window,
+                                InputTarget::FLAG_FOREGROUND, pointerIds);
+                        injectionResult = INPUT_EVENT_INJECTION_SUCCEEDED;
+                        break;
+                    }
+                }
+            }
+
             // Pointer event.  (eg. touchscreen)
-            injectionResult = findTouchedWindowTargetsLocked(currentTime,
-                    entry, nextWakeupTime);
+            if (injectionResult == INPUT_EVENT_INJECTION_PENDING)
+                injectionResult = findTouchedWindowTargetsLocked(currentTime,
+                        entry, nextWakeupTime);
+            // End WIMM added.
         } else {
             // Non touch event.  (eg. trackball)
             injectionResult = findFocusedWindowTargetsLocked(currentTime,
