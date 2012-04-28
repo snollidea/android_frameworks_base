@@ -27,6 +27,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.ObbInfo;
+import android.hardware.usb.UsbManager;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Environment;
@@ -152,6 +153,9 @@ class MountService extends IMountService.Stub
     private boolean                               mBooted = false;
     private boolean                               mReady = false;
     private boolean                               mSendUmsConnectedOnBoot = false;
+
+    // WIMM
+    private boolean mUsbConnectedState = false;
 
     /**
      * Private hash of currently mounted secure containers.
@@ -425,6 +429,39 @@ class MountService extends IMountService.Stub
         }
     }
 
+    // WIMM added.
+    private BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            // When the usb is connected we get two notifications in rapid succession, one with
+            // configuration state 0 and one with configuraiton state 3. Unfortunately to us in
+            // both cases the disk state looks identical, even though we've tried to mount ums
+            // in the first event (getUmsEnabling() still returns false for example). Nothing
+            // bad happens if we wind up calling setUsbMassStorageEnabled(true) twice but this
+            // will avoid the error lines printed to the log.
+            final boolean connected = intent.getExtras().getBoolean(UsbManager.USB_CONNECTED);
+            if (connected == mUsbConnectedState) {
+                return;
+            }
+
+            mUsbConnectedState = connected;
+            final boolean enableMassStorage = (Settings.Secure.getInt(
+                        context.getContentResolver(),
+                        Settings.Secure.USB_MASS_STORAGE_ENABLED, 0) != 0);
+            boolean enable = enableMassStorage && connected;
+
+            String path = Environment.getExternalStorageDirectory().getPath();
+            String state = getVolumeState(path);
+
+            // If we want to enable and we're already sharing or we want to disable
+            // and the drive is already mounted we don't need to do anything.
+            // Otherwise, actually call the setUsbMassStorageEnabled function.
+            if ((!state.equals(Environment.MEDIA_SHARED) && enable) ||
+                 (!state.equals(Environment.MEDIA_MOUNTED) && !enable)) {
+                setUsbMassStorageEnabled(enable);
+            }
+        }
+    };
+
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -440,12 +477,6 @@ class MountService extends IMountService.Stub
                     notifyVolumeStateChange(null, "/sdcard", VolumeState.NoMedia, VolumeState.Mounted);
                     return;
                 }
-
-                // WIMM: If the USB_MASS_STORAGE_ENABLED flag is set we will enable it.
-                final boolean enableMassStorage =
-                    (Settings.Secure.getInt(
-                            context.getContentResolver(),
-                            Settings.Secure.USB_MASS_STORAGE_ENABLED, 0) != 0);
 
                 new Thread() {
                     public void run() {
@@ -475,8 +506,6 @@ class MountService extends IMountService.Stub
                                 mSendUmsConnectedOnBoot = false;
                             }
 
-                            // WIMM added.
-                            setUsbMassStorageEnabled(enableMassStorage);
                         } catch (Exception ex) {
                             Slog.e(TAG, "Boot-time mount exception", ex);
                         }
@@ -1056,6 +1085,8 @@ class MountService extends IMountService.Stub
 
         mContext.registerReceiver(mBroadcastReceiver,
                 new IntentFilter(Intent.ACTION_BOOT_COMPLETED), null, null);
+        mContext.registerReceiver(mUsbReceiver,
+                new IntentFilter(UsbManager.ACTION_USB_STATE), null, null);
 
         mHandlerThread = new HandlerThread("MountService");
         mHandlerThread.start();
