@@ -410,12 +410,15 @@ public class UsbService extends IUsbManager.Stub {
                                 }
                             }
 
+                            /* WIMM - Why you owuld block USB broadcasts is unclear.
+                             * We certainly don't ever want that behavior.
                             final ContentResolver cr = mContext.getContentResolver();
                             if (Settings.Secure.getInt(cr,
                                     Settings.Secure.DEVICE_PROVISIONED, 0) == 0) {
                                 Slog.i(TAG, "Device not provisioned, skipping USB broadcast");
                                 return;
                             }
+                            */
 
                             mLastConnected = mConnected;
                             mLastConfiguration = mConfiguration;
