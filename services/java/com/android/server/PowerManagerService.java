@@ -1397,6 +1397,7 @@ class PowerManagerService extends IPowerManager.Stub
                         Log.d(TAG, "mBroadcastWakeLock=" + mBroadcastWakeLock);
                     }
                     if (mContext != null && ActivityManagerNative.isSystemReady()) {
+                        mScreenDimIntent.putExtra("offtimeout", getScreenOffTimeoutOverride());
                         mContext.sendOrderedBroadcast(mScreenDimIntent, null,
                                 mScreenDimBroadcastDone, mHandler, 0, null, null);
                     } else {
@@ -1469,17 +1470,7 @@ class PowerManagerService extends IPowerManager.Stub
         public void onReceive(Context context, Intent intent) {
             if (mSpew) Log.d(TAG, "ScreenDimBroadcastDone");
 
-            int timeoutOverride = -1;
-            // NOTE: Normally we want to allow the timeout to occur as normal. However, if
-            // we explicitly inserted a dim state we need to adjust the timeout to something
-            // much shorter or nonexistant, depending on the circumstance.
-            // TODO: Do we actually want these as separate values? And in the mForcedSleep case
-            // (two finger pull down) when timeout override is 1 do we always get screen
-            // updates? I haven't been able to trap it with wrong assets yet but not sure what
-            // existing mechanism would be guaranteeing this is always true.
-            if (mForcedDim) timeoutOverride = MIN_MS_BETWEEN_DIM_AND_OFF;
-            if (mForcedSleep) timeoutOverride = 1;
-            setTimeoutLocked(SystemClock.uptimeMillis(), timeoutOverride, SCREEN_OFF);
+            setTimeoutLocked(SystemClock.uptimeMillis(), getScreenOffTimeoutOverride(), SCREEN_OFF);
 
             mForcedDim = mForcedSleep = false;
             
@@ -1490,6 +1481,22 @@ class PowerManagerService extends IPowerManager.Stub
             }
         }
     };
+
+    private int getScreenOffTimeoutOverride() {
+        int timeoutOverride = -1;
+
+        // NOTE: Normally we want to allow the timeout to occur as normal. However, if
+        // we explicitly inserted a dim state we need to adjust the timeout to something
+        // much shorter or nonexistant, depending on the circumstance.
+        // TODO: Do we actually want these as separate values? And in the mForcedSleep case
+        // (two finger pull down) when timeout override is 1 do we always get screen
+        // updates? I haven't been able to trap it with wrong assets yet but not sure what
+        // existing mechanism would be guaranteeing this is always true.
+        if (mForcedDim) timeoutOverride = MIN_MS_BETWEEN_DIM_AND_OFF;
+        if (mForcedSleep) timeoutOverride = 1;
+
+        return timeoutOverride;
+    }
     // --- end WIMM dim notification --- //
 
     long mScreenOnStart;
