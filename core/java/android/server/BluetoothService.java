@@ -558,6 +558,17 @@ public class BluetoothService extends IBluetooth.Stub {
                     disableNative();
                 }
             }
+            /* WIMM #2471
+             * brcm_patchram_plus will occasionally hang if BT chip fails to 
+             * respond to hci_write_bd_addr.  When this happens, bluedroid 
+             * (bluetooth.c) will timeout and return an error, but it will not
+             * clean up after itself.  This causes BT to get stuck in an 
+             * "enabling" state.
+             * To work around, we call disableNative to cleanup if enableNative
+             * returned an error.  This should stop the hciattach service (killing
+             * brcm_patchram_plus) and power off BT.             
+             */
+            else disableNative();
 
 
             if (res) {
