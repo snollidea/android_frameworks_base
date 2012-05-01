@@ -635,7 +635,7 @@ android.view.SurfaceHolder$Callback2
 android.view.SurfaceSession
 android.view.VelocityTracker
 android.view.VelocityTracker$1
-android.view.VelocityTracker$Pointer
+#android.view.VelocityTracker$Pointer
 android.view.View
 android.view.View$AttachInfo
 android.view.View$AttachInfo$Callbacks
@@ -778,7 +778,7 @@ android.widget.TextView$HandleView
 android.widget.TextView$InsertionPointCursorController
 android.widget.TextView$InsertionPointCursorController$1
 android.widget.TextView$SelectionModifierCursorController
-android.widget.TextView$SelectionModifierCursorController$1
+#android.widget.TextView$SelectionModifierCursorController$1
 android.widget.Toast
 android.widget.Toast$TN
 android.widget.Toast$TN$1
