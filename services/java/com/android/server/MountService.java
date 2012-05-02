@@ -542,7 +542,7 @@ class MountService extends IMountService.Stub
             mConnector.doCommand(String.format(
                     "volume %sshare %s %s", (enable ? "" : "un"), path, method));
         } catch (NativeDaemonConnectorException e) {
-            Slog.e(TAG, "Failed to share/unshare", e);
+            Slog.w(TAG, "Failed to share/unshare", e);
         }
     }
 
