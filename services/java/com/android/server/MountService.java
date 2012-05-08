@@ -27,6 +27,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.ObbInfo;
+import android.database.ContentObserver;
 import android.hardware.usb.UsbManager;
 import android.net.Uri;
 import android.os.Binder;
@@ -428,6 +429,16 @@ class MountService extends IMountService.Stub
             Slog.w(TAG, "Waiting too long for mReady!");
         }
     }
+
+    // WIMM added.
+    private ContentObserver mMassStorageSettingObserver = new ContentObserver(new Handler()) {
+        public void onChange(boolean selfChange) {
+            final boolean enableMassStorage = (Settings.Secure.getInt(
+                        mContext.getContentResolver(),
+                        Settings.Secure.USB_MASS_STORAGE_ENABLED, 0) != 0);
+            setUsbMassStorageEnabled(enableMassStorage);
+        }
+    };
 
     // WIMM added.
     private BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
@@ -1087,6 +1098,9 @@ class MountService extends IMountService.Stub
                 new IntentFilter(Intent.ACTION_BOOT_COMPLETED), null, null);
         mContext.registerReceiver(mUsbReceiver,
                 new IntentFilter(UsbManager.ACTION_USB_STATE), null, null);
+        mContext.getContentResolver().registerContentObserver(
+                Settings.Secure.getUriFor(Settings.Secure.USB_MASS_STORAGE_ENABLED), true,
+                mMassStorageSettingObserver);
 
         mHandlerThread = new HandlerThread("MountService");
         mHandlerThread.start();
