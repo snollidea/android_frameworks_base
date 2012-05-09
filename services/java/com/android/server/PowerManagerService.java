@@ -229,7 +229,7 @@ class PowerManagerService extends IPowerManager.Stub
     private int mLightSensorKeyboardBrightness = -1;
     private boolean mDimScreen = true;
     private boolean mIsDocked = false;
-    private long mNextTimeout;
+    private long mNextTimeout = -1;
     private volatile int mPokey = 0;
     private volatile boolean mPokeAwakeOnSet = false;
     private volatile boolean mInitComplete = false;
@@ -968,7 +968,18 @@ class PowerManagerService extends IPowerManager.Stub
                     userActivity(SystemClock.uptimeMillis(), -1, false, OTHER_EVENT, false);
                 }
 
-                setPowerState(mWakeLockState | mUserState);
+                // WIMM
+                boolean pendingTimeoutEvent = false;
+                if ((mWakeLockState | mUserState) == SCREEN_OFF) {
+                    // If the release of the wakelock is going to power off the
+                    // screen, abort if we were already somewhere in the process
+                    // of bright->dim->off. Failure to do so can trap the watch
+                    // in an offscreen/partial down/incorrect asset state.
+                    pendingTimeoutEvent = mTimeoutTask.nextState != -1 && mNextTimeout > SystemClock.uptimeMillis();
+                    pendingTimeoutEvent |= mBroadcastWakeLock.isHeld();
+                }
+                if (!pendingTimeoutEvent)
+                    setPowerState(mWakeLockState | mUserState);
             }
         }
         else if ((wl.flags & LOCK_MASK) == PowerManager.PARTIAL_WAKE_LOCK) {
