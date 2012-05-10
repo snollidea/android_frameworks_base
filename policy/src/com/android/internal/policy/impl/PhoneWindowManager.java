@@ -493,9 +493,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     };
 
     void showGlobalActionsDialog() {
-        if (mGlobalActions == null) {
-            mGlobalActions = new GlobalActions(mContext, mPowerManager);
-        }
         final boolean keyguardShowing = mKeyguardMediator.isShowingAndNotHidden();
         mGlobalActions.showDialog();
         if (keyguardShowing) {
@@ -603,6 +600,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 com.android.internal.R.array.config_safeModeDisabledVibePattern);
         mSafeModeEnabledVibePattern = getLongIntArray(mContext.getResources(),
                 com.android.internal.R.array.config_safeModeEnabledVibePattern);
+        mGlobalActions = new GlobalActions(mContext, mPowerManager);
     }
 
     public void updateSettings() {
