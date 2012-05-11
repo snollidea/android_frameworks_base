@@ -126,7 +126,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     static final boolean DEBUG = false;
     static final boolean localLOGV = DEBUG ? Config.LOGD : Config.LOGV;
     static final boolean DEBUG_LAYOUT = false;
-    static final boolean SHOW_STARTING_ANIMATIONS = true;
+    static final boolean SHOW_STARTING_ANIMATIONS = false;
     static final boolean SHOW_PROCESSES_ON_ALT_MENU = false;
     
     // wallpaper is at the bottom, though the window manager may move it.
