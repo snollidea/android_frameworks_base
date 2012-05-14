@@ -200,7 +200,7 @@ class PowerManagerService extends IPowerManager.Stub
     private LightsService.Light mKeyboardLight;
     private LightsService.Light mAttentionLight;
     private UnsynchronizedWakeLock mBroadcastWakeLock;
-    private UnsynchronizedWakeLock mStayOnWhilePluggedInScreenDimLock;
+    //private UnsynchronizedWakeLock mStayOnWhilePluggedInScreenDimLock;
     private UnsynchronizedWakeLock mStayOnWhilePluggedInPartialLock;
     private UnsynchronizedWakeLock mPreventScreenOnPartialLock;
     private UnsynchronizedWakeLock mProximityPartialLock;
@@ -573,8 +573,8 @@ class PowerManagerService extends IPowerManager.Stub
 
         mBroadcastWakeLock = new UnsynchronizedWakeLock(
                                 PowerManager.PARTIAL_WAKE_LOCK, "sleep_broadcast", true);
-        mStayOnWhilePluggedInScreenDimLock = new UnsynchronizedWakeLock(
-                                PowerManager.SCREEN_DIM_WAKE_LOCK, "StayOnWhilePluggedIn Screen Dim", false);
+        //mStayOnWhilePluggedInScreenDimLock = new UnsynchronizedWakeLock(
+        //                        PowerManager.SCREEN_DIM_WAKE_LOCK, "StayOnWhilePluggedIn Screen Dim", false);
         mStayOnWhilePluggedInPartialLock = new UnsynchronizedWakeLock(
                                 PowerManager.PARTIAL_WAKE_LOCK, "StayOnWhilePluggedIn Partial", false);
         mPreventScreenOnPartialLock = new UnsynchronizedWakeLock(
@@ -701,10 +701,10 @@ class PowerManagerService extends IPowerManager.Stub
     private void updateWakeLockLocked() {
         if (mStayOnConditions != 0 && mBatteryService.isPowered(mStayOnConditions)) {
             // keep the device on if we're plugged in and mStayOnWhilePluggedIn is set.
-            mStayOnWhilePluggedInScreenDimLock.acquire();
+            //mStayOnWhilePluggedInScreenDimLock.acquire();
             mStayOnWhilePluggedInPartialLock.acquire();
         } else {
-            mStayOnWhilePluggedInScreenDimLock.release();
+            //mStayOnWhilePluggedInScreenDimLock.release();
             mStayOnWhilePluggedInPartialLock.release();
         }
     }
@@ -1152,7 +1152,7 @@ class PowerManagerService extends IPowerManager.Stub
                     + " mMaximumScreenOffTimeout=" + mMaximumScreenOffTimeout);
             pw.println("  mLastScreenOnTime=" + mLastScreenOnTime);
             pw.println("  mBroadcastWakeLock=" + mBroadcastWakeLock);
-            pw.println("  mStayOnWhilePluggedInScreenDimLock=" + mStayOnWhilePluggedInScreenDimLock);
+            //pw.println("  mStayOnWhilePluggedInScreenDimLock=" + mStayOnWhilePluggedInScreenDimLock);
             pw.println("  mStayOnWhilePluggedInPartialLock=" + mStayOnWhilePluggedInPartialLock);
             pw.println("  mPreventScreenOnPartialLock=" + mPreventScreenOnPartialLock);
             pw.println("  mProximityPartialLock=" + mProximityPartialLock);
