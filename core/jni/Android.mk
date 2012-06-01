@@ -140,8 +140,7 @@ LOCAL_SRC_FILES:= \
 	android_backup_FileBackupHelperBase.cpp \
 	android_backup_BackupHelperDispatcher.cpp \
 	android_content_res_ObbScanner.cpp \
-    android_content_res_Configuration.cpp \
-    android_beeper_Beeper.cpp
+    android_content_res_Configuration.cpp
 
 LOCAL_C_INCLUDES += \
 	$(JNI_H_INCLUDE) \

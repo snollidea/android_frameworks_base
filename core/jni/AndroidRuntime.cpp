@@ -171,7 +171,6 @@ extern int register_android_view_KeyEvent(JNIEnv* env);
 extern int register_android_view_MotionEvent(JNIEnv* env);
 extern int register_android_content_res_ObbScanner(JNIEnv* env);
 extern int register_android_content_res_Configuration(JNIEnv* env);
-extern int register_android_beeper_Beeper(JNIEnv* env);
 
 static AndroidRuntime* gCurRuntime = NULL;
 
@@ -1235,7 +1234,7 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_graphics_Xfermode),
     REG_JNI(register_android_graphics_YuvImage),
     REG_JNI(register_com_android_internal_graphics_NativeUtils),
-    REG_JNI(register_android_beeper_Beeper),
+
     REG_JNI(register_android_database_CursorWindow),
     REG_JNI(register_android_database_SQLiteCompiledSql),
     REG_JNI(register_android_database_SQLiteDatabase),
