@@ -18,6 +18,8 @@ import android.util.Log;
 import android.view.WindowManager;
 import android.widget.Toast;
 
+import com.wimm.internal.app.WaitDialog;
+
 import com.android.internal.R;
 
 /**
@@ -42,7 +44,7 @@ public class ExternalStorageFormatter extends Service
 
     private PowerManager.WakeLock mWakeLock;
 
-    private ProgressDialog mProgressDialog = null;
+    private WaitDialog mWaitDialog = null;
 
     private boolean mFactoryReset = false;
     private boolean mAlwaysReset = false;
@@ -80,16 +82,11 @@ public class ExternalStorageFormatter extends Service
             mAlwaysReset = true;
         }
 
-        if (mProgressDialog == null) {
-            mProgressDialog = new ProgressDialog(this);
-            mProgressDialog.setIndeterminate(true);
-            mProgressDialog.setCancelable(true);
-            mProgressDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
-            if (!mAlwaysReset) {
-                mProgressDialog.setOnCancelListener(this);
-            }
+        if (mWaitDialog == null) {
+            mWaitDialog = new WaitDialog(this);
+            mWaitDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
             updateProgressState();
-            mProgressDialog.show();
+            mWaitDialog.show();
         }
 
         return Service.START_REDELIVER_INTENT;
@@ -100,8 +97,8 @@ public class ExternalStorageFormatter extends Service
         if (mStorageManager != null) {
             mStorageManager.unregisterListener(mStorageListener);
         }
-        if (mProgressDialog != null) {
-            mProgressDialog.dismiss();
+        if (mWaitDialog != null) {
+            mWaitDialog.dismiss();
         }
         mWakeLock.release();
         super.onDestroy();
@@ -203,15 +200,13 @@ public class ExternalStorageFormatter extends Service
     }
 
     public void updateProgressDialog(int msg) {
-        if (mProgressDialog == null) {
-            mProgressDialog = new ProgressDialog(this);
-            mProgressDialog.setIndeterminate(true);
-            mProgressDialog.setCancelable(false);
-            mProgressDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
-            mProgressDialog.show();
+        if (mWaitDialog == null) {
+            mWaitDialog = new WaitDialog(this);
+            mWaitDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
+            mWaitDialog.show();
         }
 
-        mProgressDialog.setMessage(getText(msg));
+        mWaitDialog.setTitle(getText(msg));
     }
 
     IMountService getMountService() {

@@ -42,6 +42,8 @@ import com.android.internal.telephony.ITelephony;
 import android.util.Log;
 import android.view.WindowManager;
 
+import com.wimm.internal.app.WaitDialog;
+
 public final class ShutdownThread extends Thread {
     // constants
     private static final String TAG = "ShutdownThread";
@@ -160,6 +162,11 @@ public final class ShutdownThread extends Thread {
 
         pd.show();
         */
+
+        WaitDialog wd = new WaitDialog(context);
+        wd.setTitle(context.getText(com.android.internal.R.string.power_off));
+        wd.getWindow().setType(WindowManager.LayoutParams.TYPE_KEYGUARD_DIALOG);
+        wd.show();
         
         // start the thread that initiates shutdown
         sInstance.mContext = context;
