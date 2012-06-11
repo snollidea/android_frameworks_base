@@ -600,7 +600,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 com.android.internal.R.array.config_safeModeDisabledVibePattern);
         mSafeModeEnabledVibePattern = getLongIntArray(mContext.getResources(),
                 com.android.internal.R.array.config_safeModeEnabledVibePattern);
-        mGlobalActions = new GlobalActions(mContext, mPowerManager);
+        mGlobalActions = new GlobalActions(mContext);
     }
 
     public void updateSettings() {

@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.LocalPowerManager;
 
 // NOTE: This is drastically different from the default android GlobalActions.
 //       I believe some of the reasons for this are 1) at some point we were trying
@@ -19,7 +18,6 @@ import android.os.LocalPowerManager;
 //       itself is unfortunate.
 class GlobalActions {
     private final Context mContext;
-    private final LocalPowerManager mPowerManager;
 
     // These strings need to stay in sync with those in the wimm framework.
     // We can't reference the framework from here unfortunately.
@@ -27,19 +25,9 @@ class GlobalActions {
     private static final String ACTION_HIDE_GLOBAL_DIALOG = "com.wimm.action.HIDE_GLOBAL_DIALOG";
     
     private static final String ACTION_INITIATE_SHUTDOWN = "com.wimm.action.INITIATE_SHUTDOWN";
-    private static final String ACTION_ENABLE_USER_ACTIVITY = "com.wimm.action.ENABLE_USER_ACTIVITY";
-    private static final String EXTRA_ENABLE = "enable";
 
-    public GlobalActions(Context context, LocalPowerManager powerManager) {
+    public GlobalActions(Context context) {
         mContext = context;
-        mPowerManager = powerManager;
-
-        context.registerReceiver(
-            mUserActivityReceiver, 
-            new IntentFilter(ACTION_ENABLE_USER_ACTIVITY),
-            android.Manifest.permission.DISABLE_KEYGUARD,
-            null
-        );
 
         context.registerReceiver(
             mShutdownReceiver, 
@@ -61,13 +49,6 @@ class GlobalActions {
     public void hideDialog() {
         mContext.startService(new Intent(ACTION_HIDE_GLOBAL_DIALOG));
     }
-    
-    private BroadcastReceiver mUserActivityReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            boolean enabled = intent.getBooleanExtra(EXTRA_ENABLE, true);
-            mPowerManager.enableUserActivity(enabled);
-        }
-    };
     
     private BroadcastReceiver mShutdownReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
