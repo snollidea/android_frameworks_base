@@ -1634,7 +1634,9 @@ class PowerManagerService extends IPowerManager.Stub
         }
     }
 
-    public void setScreenBrightnessOverride(int brightness) {
+	public void setScreenBrightnessOverride(int target_brightness) {
+		int brightness = ((target_brightness != 0) ? target_brightness : 1);	// If brightness value is 0, use 1 instead as both values are off,
+                                                                                // but using 1 keeps the math legal (no trying to divide by 0) - njv
         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.DEVICE_POWER, null);
 
         if (mSpew) Slog.d(TAG, "setScreenBrightnessOverride " + brightness);
@@ -1972,8 +1974,19 @@ class PowerManagerService extends IPowerManager.Stub
                 // the scale is because the brightness ramp isn't linear and this biases
                 // it so the later parts take longer.
                 final float scale = 1.5f;
-                float ratio = (((float)Power.BRIGHTNESS_DIM)/preferredBrightness);
-                if (ratio > 1.0f) ratio = 1.0f;
+                float ratio;
+
+                // Don't allow div by 0.  If it's 0, our ratio is 1.0 - njv 06152012
+                if (preferredBrightness != 0) {
+                    ratio = (((float)Power.BRIGHTNESS_DIM)/preferredBrightness);
+                    if (ratio > 1.0f)
+                        ratio = 1.0f;
+                }
+                else {
+                    ratio = 1.0f;  // Infinity is > 1.0f, so we set to maximum ratio of 1.0
+                }
+
+
                 if ((newState & SCREEN_ON_BIT) == 0) {
                     if ((oldState & SCREEN_BRIGHT_BIT) != 0) {
                         // was bright
@@ -1991,14 +2004,28 @@ class PowerManagerService extends IPowerManager.Stub
                         // was dim
                         steps = (int)(ANIM_STEPS*ratio);
                     }
+
+/*
+                    //
+                    // Not sure why this code is here, can't find the case that it's supposed to
+                    // be handling.  Commenting out for now, but leaving commented out code here in
+                    // case a case is found where this is actually needed.
+                    //
+                    // IF it is needed, it must include the check for steps != 0 or it will break
+                    // device behavior causing device to incorrectly go to sleep immediately
+                    // if application sets local brightness level to 0.  -njv commented out 06152012
+                    //
                     if (mStayOnConditions != 0 && mBatteryService.isPowered(mStayOnConditions)) {
                         // If the "stay on while plugged in" option is
                         // turned on, then the screen will often not
                         // automatically turn off while plugged in.  To
                         // still have a sense of when it is inactive, we
                         // will then count going dim as turning off.
-                        mScreenOffTime = SystemClock.elapsedRealtime();
+                        if (steps != 0)  {		// njv added this line 06162012
+                            mScreenOffTime = SystemClock.elapsedRealtime();
+                        }
                     }
+*/
                     brightness = Power.BRIGHTNESS_DIM;
                 }
             }
@@ -2010,8 +2037,21 @@ class PowerManagerService extends IPowerManager.Stub
             } finally {
                 Binder.restoreCallingIdentity(identity);
             }
-            mScreenBrightness.setTargetLocked(brightness, steps,
+
+            //
+            // If the preferred brightness level is less than the DIM level (possible
+            // if an app directly sets brightness level), the ratio will be 1 and will
+            // calculate a step count of 0, meaning we shouldn't change level at all.
+            // setTargetLocked() would do a divide by zero, will add error correction for
+            // that for better robustness, but avoiding call altogether here if (steps==0).
+            // -- njv 06142012
+            //
+            if (steps != 0)  {
+                mScreenBrightness.setTargetLocked(brightness, steps,
                     INITIAL_SCREEN_BRIGHTNESS, nominalCurrentValue);
+            }
+            else
+                Slog.d(TAG, "NOT doing first part of RAMPING as steps = " + steps);
         }
 
         if (mSpew) {
@@ -2023,6 +2063,7 @@ class PowerManagerService extends IPowerManager.Stub
                     + " forceState=0x" + Integer.toHexString(forceState)
                     );
         }
+
 
         if (offMask != 0) {
             if (mSpew) Slog.i(TAG, "Setting brightess off: " + offMask);
@@ -2091,6 +2132,16 @@ class PowerManagerService extends IPowerManager.Stub
             } else if (targetValue == target) {
                 return;
             }
+
+            //
+            // It's possible for callers to pass 0 steps. This is the same as "don't
+            // do anything, zero steps.   If this is the case, return now or the
+            // calculation of delta would divide by zero, which is, uh, bad. -njv
+            //
+            if (stepsToTarget == 0) {
+                return;
+            }
+
             targetValue = target;
             delta = (targetValue -
                     (nominalCurrentValue >= 0 ? nominalCurrentValue : curValue))
