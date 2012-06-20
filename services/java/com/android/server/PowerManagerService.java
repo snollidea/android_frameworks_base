@@ -887,7 +887,10 @@ class PowerManagerService extends IPowerManager.Stub
                     }
                     mWakeLockState = (mUserState | mWakeLockState) & mLocks.gatherState();
                 }
-                setPowerState(mWakeLockState | mUserState);
+
+                // Grabbing a wakelock should never immediately jump us to a lower state.
+                // Or in the current state to prevent abrupt screen offs and the like.
+                setPowerState(mWakeLockState | mUserState | mPowerState);
             }
         }
         else if ((flags & LOCK_MASK) == PowerManager.PARTIAL_WAKE_LOCK) {
