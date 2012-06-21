@@ -566,6 +566,14 @@ class BluetoothEventLoop {
 
     private void onDiscoverServicesResult(String deviceObjectPath, boolean result) {
         String address = mBluetoothService.getAddressFromObjectPath(deviceObjectPath);
+        
+        /* WIMM #2777
+         * If adapter was powered off and on quickly, we may be called with a device path
+         * that uses the older adapter path.  This will cause getAddressFromObjectPath to
+         * return null, so we better be ready to handle this case.
+         */
+        if ( address == null ) return;
+        
         // We don't parse the xml here, instead just query Bluez for the properties.
         if (result) {
             mBluetoothService.updateRemoteDevicePropertiesCache(address);
