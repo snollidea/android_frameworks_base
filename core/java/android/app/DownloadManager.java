@@ -326,6 +326,12 @@ public class DownloadManager {
          */
         public static final int NETWORK_WIFI = 1 << 1;
 
+        /**
+         * Bit flag for {@link #setAllowedNetworkTypes} corresponding to
+         * {@link ConnectivityManager#TYPE_WIFI}.
+         */
+        public static final int NETWORK_BLUETOOTH = 1 << 7;
+
         private Uri mUri;
         private Uri mDestinationUri;
         private List<Pair<String, String>> mRequestHeaders = new ArrayList<Pair<String, String>>();

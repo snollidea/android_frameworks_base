@@ -25,6 +25,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
+import android.net.BluetoothStateTracker;
 import android.net.ConnectivityManager;
 import android.net.IConnectivityManager;
 import android.net.MobileDataStateTracker;
@@ -395,6 +396,13 @@ public class ConnectivityService extends IConnectivityManager.Stub {
                     if (DBG) Slog.d(TAG, "tearing down WiMAX networks due to setting");
                     mNetTrackers[netType].teardown();
                 }
+                break;
+            case ConnectivityManager.TYPE_BLUETOOTH:
+                if (DBG) Slog.v(TAG, "Creating Bluetooth tracker.");
+                BluetoothStateTracker bst = new BluetoothStateTracker(context, mHandler);
+                mNetTrackers[ConnectivityManager.TYPE_BLUETOOTH] = bst;
+                bst.startMonitoring();
+
                 break;
             default:
                 Slog.e(TAG, "Trying to create a DataStateTracker for an unknown radio type " +
