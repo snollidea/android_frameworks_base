@@ -272,8 +272,15 @@ class ContextImpl extends Context {
     
     @Override
     public Context getApplicationContext() {
-        return (mPackageInfo != null) ?
-                mPackageInfo.getApplication() : mMainThread.getApplication();
+        /* WIMM #2814 
+         * Use mMainThread if mPackageInfo.getApplication() returns null.
+         * This allows us to get the running application context if this  
+         * context was created via createPackageContext() (eg WatchfaceApp).
+         */
+        Context ctx = null;
+        if (mPackageInfo != null) ctx = mPackageInfo.getApplication();
+        if (ctx == null) ctx = mMainThread.getApplication();
+        return ctx;
     }
     
     @Override
