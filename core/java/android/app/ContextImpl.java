@@ -336,16 +336,6 @@ class ContextImpl extends Context {
     }
 
     public File getSharedPrefsFile(String name) {
-        // Watchfaces no longer signed/shareduser-ified, can't access their
-        // dirs from the watchface process. Temporary fix to allow access to
-        // shared preferences again.
-        if (getApplicationContext() == null &&
-            mMainThread.getApplication().getApplicationInfo().processName.equals("com.wimm.watchface")) {
-            String realPrefsPath = getPreferencesDir().getAbsolutePath().replace(
-                    getApplicationInfo().processName, "com.wimm.watchface");
-            File prefsDir = new File(realPrefsPath, getApplicationInfo().processName);
-            return makeFilename(prefsDir, name + ".xml");
-        }
         return makeFilename(getPreferencesDir(), name + ".xml");
     }
 
