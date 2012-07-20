@@ -1492,6 +1492,23 @@ class ContextImpl extends Context {
 
     private File getDataDirFile() {
         if (mPackageInfo != null) {
+            /* WIMM #2814 
+             * If mPackageInfo.getApplication() returns null, check to see if we're the watchface app.
+             * If we are, use the watchface data folder as we are the wrong user ID to access the 
+             * package's data folder.
+             */
+            if (mPackageInfo.getApplication() == null) {
+                if (mMainThread != null) {
+                    Application a = mMainThread.getApplication();
+                    ApplicationInfo ai = (a != null) ? a.getApplicationInfo() : null;
+                    if ((ai != null) && 
+                        (ai.processName != null) &&
+                        ai.processName.equals("com.wimm.watchface")) 
+                    {
+                        return new File(ai.dataDir);
+                    }                        
+                }
+            }
             return mPackageInfo.getDataDirFile();
         }
         throw new RuntimeException("Not supported in system context");
