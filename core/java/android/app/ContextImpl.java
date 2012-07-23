@@ -1505,7 +1505,16 @@ class ContextImpl extends Context {
                         (ai.processName != null) &&
                         ai.processName.equals("com.wimm.watchface")) 
                     {
-                        return new File(ai.dataDir);
+                        // append package name to path to avoid filename collisions between watchfaces
+                        File file = new File(ai.dataDir, mPackageInfo.getPackageName());
+                        if (!file.exists()) {
+                            file.mkdir();
+                            FileUtils.setPermissions(
+                                file.getPath(),
+                                FileUtils.S_IRWXU|FileUtils.S_IRWXG|FileUtils.S_IXOTH,
+                                -1, -1);
+                        }
+                        return file;
                     }                        
                 }
             }
